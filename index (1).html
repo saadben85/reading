@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0c12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="قارئ سريع">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>قارئ سريع</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c12;
+  --surface: #12151f;
+  --surface2: #1a1f2e;
+  --surface3: #222840;
+  --border: #2c3350;
+  --gold: #d4a843;
+  --gold-light: #f0c96a;
+  --gold-dim: rgba(212,168,67,0.15);
+  --cyan: #38bdf8;
+  --red: #f87171;
+  --green: #4ade80;
+  --text: #e2e6f3;
+  --text-muted: #6b7498;
+  --text-dim: #3d4460;
+  --r: 12px;
+  --font-ui: 'Cairo', sans-serif;
+  --font-read: 'Amiri', serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+body{
+  font-family:var(--font-ui);
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+  position:relative;
+}
+
+body::before{
+  content:'';
+  position:fixed;
+  top:-200px; right:-200px;
+  width:500px; height:500px;
+  background: radial-gradient(circle, rgba(212,168,67,0.06) 0%, transparent 70%);
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ===== NAV ===== */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  background:rgba(10,12,18,0.9);
+  backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--border);
+  padding:12px 16px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.nav-logo{
+  font-size:20px;font-weight:900;
+  background:linear-gradient(135deg,var(--gold),var(--gold-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  letter-spacing:-0.5px;
+}
+.nav-logo span{font-weight:300;font-size:13px;color:var(--text-muted);-webkit-text-fill-color:var(--text-muted);}
+.nav-tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;}
+.nav-tab{
+  padding:6px 14px;border-radius:7px;border:none;
+  background:transparent;color:var(--text-muted);
+  font-family:var(--font-ui);font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
+}
+.nav-tab.active{background:var(--gold);color:#0a0c12;}
+.nav-tab:hover:not(.active){color:var(--text);}
+
+/* ===== SCREENS ===== */
+.screen{display:none;padding-top:64px;min-height:100vh;}
+.screen.active{display:block;}
+
+/* ===== HOME ===== */
+.home-hero{
+  padding:32px 16px 16px;
+  text-align:center;
+}
+.hero-title{
+  font-size:28px;font-weight:900;
+  line-height:1.3;margin-bottom:8px;
+}
+.hero-title em{
+  font-style:normal;
+  background:linear-gradient(135deg,var(--gold),var(--gold-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.hero-sub{color:var(--text-muted);font-size:14px;line-height:1.7;margin-bottom:24px;}
+
+.stats-row{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  margin:0 16px 24px;
+}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:14px 10px;text-align:center;
+}
+.stat-val{font-size:22px;font-weight:900;color:var(--gold);}
+.stat-lbl{font-size:11px;color:var(--text-muted);margin-top:2px;}
+
+.section-title{
+  padding:0 16px 10px;
+  font-size:13px;font-weight:700;color:var(--text-muted);
+  text-transform:uppercase;letter-spacing:1px;
+}
+
+.modes-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+  padding:0 16px 16px;
+}
+.mode-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:16px 14px;
+  cursor:pointer;transition:all .25s;position:relative;overflow:hidden;
+}
+.mode-card::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,var(--gold-dim),transparent);
+  opacity:0;transition:opacity .25s;
+}
+.mode-card:hover::after,.mode-card:active::after{opacity:1;}
+.mode-card:hover{border-color:var(--gold);transform:translateY(-2px);}
+.mode-icon{font-size:26px;margin-bottom:8px;}
+.mode-name{font-size:14px;font-weight:700;margin-bottom:4px;}
+.mode-desc{font-size:12px;color:var(--text-muted);line-height:1.5;}
+
+/* ===== LIBRARY ===== */
+.lib-header{padding:16px;}
+.search-box{
+  display:flex;align-items:center;gap:10px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;padding:10px 14px;margin-bottom:16px;
+}
+.search-box input{
+  flex:1;background:none;border:none;outline:none;
+  font-family:var(--font-ui);font-size:14px;color:var(--text);
+  direction:rtl;
+}
+.search-box input::placeholder{color:var(--text-muted);}
+
+.lib-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px;}
+.lib-tab{
+  padding:6px 16px;border-radius:20px;border:1px solid var(--border);
+  background:transparent;color:var(--text-muted);
+  font-family:var(--font-ui);font-size:13px;font-weight:600;
+  cursor:pointer;white-space:nowrap;transition:all .2s;
+}
+.lib-tab.active{background:var(--gold);color:#0a0c12;border-color:var(--gold);}
+
+.books-list{padding:0 16px;display:flex;flex-direction:column;gap:10px;}
+.book-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:14px;
+  display:flex;gap:14px;align-items:flex-start;
+  cursor:pointer;transition:all .2s;
+}
+.book-card:hover{border-color:var(--gold);}
+.book-cover{
+  width:48px;height:64px;border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:24px;
+}
+.book-info{flex:1;}
+.book-title{font-size:15px;font-weight:700;margin-bottom:4px;line-height:1.3;}
+.book-author{font-size:12px;color:var(--text-muted);margin-bottom:8px;}
+.book-meta{display:flex;gap:8px;flex-wrap:wrap;}
+.book-tag{
+  padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;
+  background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);
+}
+.book-tag.diff-easy{color:var(--green);border-color:var(--green);}
+.book-tag.diff-med{color:var(--gold);border-color:var(--gold);}
+.book-tag.diff-hard{color:var(--red);border-color:var(--red);}
+
+.add-text-btn{
+  margin:16px;padding:14px;
+  background:var(--surface);border:1px dashed var(--border);
+  border-radius:var(--r);color:var(--text-muted);
+  font-family:var(--font-ui);font-size:14px;font-weight:600;
+  cursor:pointer;width:calc(100% - 32px);
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.add-text-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+/* ===== READER ===== */
+.reader-wrap{
+  padding:16px;display:flex;flex-direction:column;gap:12px;
+}
+.reader-book-title{
+  font-size:13px;color:var(--text-muted);font-weight:600;
+  padding:0 4px;
+}
+
+/* Mode Selector */
+.mode-selector{
+  display:flex;gap:6px;background:var(--surface);
+  border-radius:10px;padding:4px;border:1px solid var(--border);
+}
+.mode-btn{
+  flex:1;padding:7px 4px;border-radius:7px;border:none;
+  background:transparent;color:var(--text-muted);
+  font-family:var(--font-ui);font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .2s;text-align:center;
+}
+.mode-btn.active{background:var(--gold);color:#0a0c12;}
+
+/* Controls */
+.controls-panel{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:14px;
+}
+.ctrl-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.ctrl-row:last-child{margin-bottom:0;}
+.ctrl-label{font-size:12px;color:var(--text-muted);font-weight:600;min-width:60px;}
+.ctrl-slider{
+  flex:1;-webkit-appearance:none;appearance:none;
+  height:4px;border-radius:2px;background:var(--surface3);outline:none;
+}
+.ctrl-slider::-webkit-slider-thumb{
+  -webkit-appearance:none;width:18px;height:18px;
+  border-radius:50%;background:var(--gold);cursor:pointer;
+}
+.ctrl-val{
+  font-size:12px;font-weight:700;color:var(--gold);
+  min-width:40px;text-align:center;
+  background:var(--gold-dim);border-radius:6px;padding:2px 6px;
+}
+.font-btns{display:flex;gap:6px;}
+.font-btn{
+  width:32px;height:32px;border-radius:8px;
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text);font-family:var(--font-ui);font-size:13px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.font-btn.active{background:var(--gold);color:#0a0c12;border-color:var(--gold);}
+
+/* Reading Area */
+.reading-area{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px;min-height:200px;
+  position:relative;overflow:hidden;
+}
+
+/* RSVP Mode */
+.rsvp-display{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  min-height:180px;
+}
+.rsvp-display.active{display:flex;}
+.rsvp-progress-line{
+  width:100%;height:3px;background:var(--surface3);border-radius:2px;
+  margin-bottom:24px;overflow:hidden;
+}
+.rsvp-progress-fill{
+  height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));
+  border-radius:2px;transition:width .1s linear;
+}
+.rsvp-word-wrap{position:relative;text-align:center;}
+.rsvp-word{
+  font-family:var(--font-read);
+  font-size:42px;font-weight:700;
+  color:var(--text);
+  animation:wordFlash .15s ease;
+  display:inline-block;
+  min-width:200px;
+}
+.rsvp-word .orp{color:var(--gold);}
+.rsvp-counter{
+  margin-top:20px;font-size:12px;color:var(--text-dim);
+  display:flex;gap:16px;justify-content:center;
+}
+@keyframes wordFlash{
+  0%{opacity:0;transform:scale(0.95);}
+  100%{opacity:1;transform:scale(1);}
+}
+
+/* Highlight Mode */
+.highlight-display{
+  display:none;font-family:var(--font-read);
+  font-size:20px;line-height:2.2;
+  color:var(--text-muted);direction:rtl;
+  max-height:300px;overflow-y:auto;
+}
+.highlight-display.active{display:block;}
+.highlight-display .h-word{
+  display:inline;transition:color .1s,background .1s;
+  border-radius:4px;padding:0 3px;
+}
+.highlight-display .h-word.current{
+  color:#0a0c12;
+  background:var(--gold);
+  border-radius:4px;
+}
+.highlight-display .h-word.read{color:var(--text-dim);}
+
+/* Chunk Mode */
+.chunk-display{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  min-height:180px;text-align:center;
+}
+.chunk-display.active{display:flex;}
+.chunk-text{
+  font-family:var(--font-read);font-size:28px;font-weight:700;
+  color:var(--text);line-height:1.6;
+  animation:chunkIn .2s ease;
+  max-width:280px;
+}
+@keyframes chunkIn{
+  0%{opacity:0;transform:translateY(8px);}
+  100%{opacity:1;transform:translateY(0);}
+}
+
+/* Pacer Mode */
+.pacer-display{
+  display:none;position:relative;font-family:var(--font-read);
+  font-size:18px;line-height:2.4;direction:rtl;
+  max-height:280px;overflow:hidden;
+}
+.pacer-display.active{display:block;}
+.pacer-line{
+  position:absolute;left:0;right:0;height:2.4em;
+  background:linear-gradient(180deg,transparent,rgba(212,168,67,0.08),transparent);
+  border-top:2px solid var(--gold);
+  pointer-events:none;transition:top .15s linear;
+  border-radius:2px;
+}
+
+/* Peripheral Mode */
+.periph-display{
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  min-height:180px;gap:12px;
+}
+.periph-display.active{display:flex;}
+.periph-row{display:flex;gap:20px;align-items:center;justify-content:center;}
+.periph-word{
+  font-family:var(--font-read);font-size:24px;font-weight:700;
+  color:var(--text-muted);
+  transition:all .3s;
+}
+.periph-word.center{color:var(--text);font-size:32px;}
+.periph-word.fade{opacity:0.2;}
+.periph-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--gold);flex-shrink:0;
+}
+
+/* Play Controls */
+.play-controls{
+  display:flex;gap:10px;align-items:center;justify-content:center;
+}
+.play-btn{
+  width:56px;height:56px;border-radius:50%;
+  background:linear-gradient(135deg,var(--gold),var(--gold-light));
+  border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;transition:all .2s;
+  box-shadow:0 4px 20px rgba(212,168,67,0.3);
+}
+.play-btn:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(212,168,67,0.4);}
+.play-btn:active{transform:scale(0.97);}
+.ctrl-btn{
+  width:42px;height:42px;border-radius:50%;
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--text-muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  transition:all .2s;
+}
+.ctrl-btn:hover{border-color:var(--gold);color:var(--gold);}
+.wpm-display{
+  font-size:13px;font-weight:700;color:var(--gold);
+  background:var(--gold-dim);border-radius:20px;padding:4px 12px;
+}
+
+/* Text Input Modal */
+.modal-overlay{
+  position:fixed;inset:0;z-index:500;
+  background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);
+  display:none;align-items:flex-end;
+}
+.modal-overlay.open{display:flex;}
+.modal-sheet{
+  width:100%;background:var(--surface);
+  border-radius:20px 20px 0 0;padding:20px 16px;
+  max-height:85vh;display:flex;flex-direction:column;gap:12px;
+}
+.modal-handle{
+  width:40px;height:4px;background:var(--border);
+  border-radius:2px;margin:0 auto 8px;
+}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:4px;}
+.modal-textarea{
+  flex:1;min-height:160px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:12px;
+  font-family:var(--font-read);font-size:16px;color:var(--text);
+  resize:none;outline:none;direction:rtl;line-height:1.8;
+}
+.modal-textarea::placeholder{color:var(--text-muted);}
+.modal-textarea:focus{border-color:var(--gold);}
+.modal-footer{display:flex;gap:10px;}
+.btn{
+  flex:1;padding:13px;border-radius:10px;border:none;
+  font-family:var(--font-ui);font-size:14px;font-weight:700;
+  cursor:pointer;transition:all .2s;
+}
+.btn-primary{background:var(--gold);color:#0a0c12;}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+
+/* Comprehension Quiz */
+.quiz-panel{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:16px;display:none;
+}
+.quiz-panel.active{display:block;}
+.quiz-q{font-size:15px;font-weight:700;margin-bottom:14px;line-height:1.5;}
+.quiz-options{display:flex;flex-direction:column;gap:8px;}
+.quiz-opt{
+  padding:12px 14px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface2);color:var(--text);
+  font-family:var(--font-ui);font-size:14px;font-weight:600;
+  cursor:pointer;text-align:right;transition:all .2s;
+}
+.quiz-opt:hover{border-color:var(--gold);}
+.quiz-opt.correct{background:rgba(74,222,128,0.15);border-color:var(--green);color:var(--green);}
+.quiz-opt.wrong{background:rgba(248,113,113,0.15);border-color:var(--red);color:var(--red);}
+.quiz-result{
+  margin-top:12px;padding:12px;border-radius:10px;
+  font-size:14px;font-weight:600;text-align:center;display:none;
+}
+
+/* ===== STATS ===== */
+.stats-screen{padding:16px;}
+.stats-header{
+  font-size:22px;font-weight:900;margin-bottom:4px;
+}
+.stats-sub{font-size:13px;color:var(--text-muted);margin-bottom:20px;}
+
+.big-stat{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:20px;text-align:center;margin-bottom:12px;
+  position:relative;overflow:hidden;
+}
+.big-stat::before{
+  content:'';position:absolute;top:-30px;right:-30px;
+  width:100px;height:100px;border-radius:50%;
+  background:radial-gradient(circle,var(--gold-dim),transparent);
+}
+.big-num{
+  font-size:52px;font-weight:900;
+  background:linear-gradient(135deg,var(--gold),var(--gold-light));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1;
+}
+.big-unit{font-size:16px;color:var(--text-muted);margin-top:4px;}
+
+.chart-wrap{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);padding:16px;margin-bottom:12px;
+}
+.chart-title{font-size:14px;font-weight:700;margin-bottom:14px;color:var(--text-muted);}
+.bar-chart{display:flex;gap:8px;align-items:flex-end;height:100px;}
+.bar-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.bar{
+  width:100%;border-radius:6px 6px 0 0;
+  background:linear-gradient(180deg,var(--gold-light),var(--gold));
+  min-height:4px;transition:height .5s ease;
+}
+.bar-lbl{font-size:10px;color:var(--text-muted);}
+.bar-val{font-size:10px;font-weight:700;color:var(--gold);}
+
+.history-list{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);overflow:hidden;
+}
+.history-item{
+  padding:12px 14px;border-bottom:1px solid var(--border);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.history-item:last-child{border-bottom:none;}
+.hist-info{font-size:13px;}
+.hist-title{font-weight:700;margin-bottom:2px;}
+.hist-date{font-size:11px;color:var(--text-muted);}
+.hist-wpm{
+  font-size:16px;font-weight:900;color:var(--gold);
+  background:var(--gold-dim);border-radius:8px;padding:4px 10px;
+}
+
+/* ===== SETTINGS ===== */
+.settings-screen{padding:16px;}
+.settings-group{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r);margin-bottom:12px;overflow:hidden;
+}
+.settings-group-title{
+  padding:12px 14px;font-size:12px;font-weight:700;
+  color:var(--text-muted);border-bottom:1px solid var(--border);
+  text-transform:uppercase;letter-spacing:1px;
+}
+.settings-row{
+  padding:14px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.settings-row:last-child{border-bottom:none;}
+.settings-label{font-size:14px;font-weight:600;}
+.settings-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+.toggle{
+  width:48px;height:26px;border-radius:13px;
+  background:var(--surface3);position:relative;
+  cursor:pointer;transition:background .2s;flex-shrink:0;border:none;
+}
+.toggle.on{background:var(--gold);}
+.toggle::after{
+  content:'';position:absolute;top:3px;right:3px;
+  width:20px;height:20px;border-radius:50%;background:white;
+  transition:transform .2s;
+}
+.toggle.on::after{transform:translateX(-22px);}
+
+.color-row{display:flex;gap:8px;flex-wrap:wrap;}
+.color-swatch{
+  width:28px;height:28px;border-radius:50%;cursor:pointer;
+  border:2px solid transparent;transition:all .2s;
+}
+.color-swatch.selected{border-color:white;transform:scale(1.15);}
+
+.reset-btn{
+  width:100%;margin:8px 0 24px;padding:14px;
+  background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);
+  border-radius:var(--r);color:var(--red);
+  font-family:var(--font-ui);font-size:14px;font-weight:700;
+  cursor:pointer;transition:all .2s;
+}
+.reset-btn:hover{background:rgba(248,113,113,0.2);}
+
+/* ===== TOAST ===== */
+.toast{
+  position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;
+  z-index:999;opacity:0;transition:all .3s;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ===== BOTTOM NAV ===== */
+.bottom-nav{
+  position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:rgba(10,12,18,0.95);
+  backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+  display:flex;
+  padding:8px 0 env(safe-area-inset-bottom,8px);
+}
+.bn-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:4px 0;cursor:pointer;transition:all .2s;border:none;background:none;
+}
+.bn-icon{font-size:22px;transition:transform .2s;}
+.bn-label{font-size:10px;font-weight:600;color:var(--text-muted);}
+.bn-item.active .bn-label{color:var(--gold);}
+.bn-item.active .bn-icon{transform:translateY(-2px);}
+
+/* ===== UTILS ===== */
+.pb-nav{padding-bottom:70px;}
+
+/* Reader inside bottom padded */
+.reader-wrap.pb-nav,.stats-screen.pb-nav,.settings-screen.pb-nav{padding-bottom:80px;}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- SCREENS -->
+<!-- HOME -->
+<div class="screen active" id="screen-home">
+  <div class="home-hero">
+    <div class="hero-title">طوّر <em>قراءتك</em><br>بتقنيات علمية</div>
+    <div class="hero-sub">مدرب القراءة السريعة الأول بالعربية<br>RSVP · تمييز · مجموعات · محيطية</div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-val" id="home-wpm">—</div>
+      <div class="stat-lbl">كلمة/دقيقة</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="home-sessions">0</div>
+      <div class="stat-lbl">جلسات</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="home-comp">—</div>
+      <div class="stat-lbl">فهم %</div>
+    </div>
+  </div>
+
+  <div class="section-title">اختر أسلوب التدريب</div>
+  <div class="modes-grid">
+    <div class="mode-card" onclick="goMode('rsvp')">
+      <div class="mode-icon">⚡</div>
+      <div class="mode-name">RSVP</div>
+      <div class="mode-desc">كلمة واحدة في نقطة مركزية ثابتة</div>
+    </div>
+    <div class="mode-card" onclick="goMode('highlight')">
+      <div class="mode-icon">🎯</div>
+      <div class="mode-name">تمييز</div>
+      <div class="mode-desc">تسليط الضوء على الكلمات بالتسلسل</div>
+    </div>
+    <div class="mode-card" onclick="goMode('chunk')">
+      <div class="mode-icon">📦</div>
+      <div class="mode-name">مجموعات</div>
+      <div class="mode-desc">قراءة كتل من الكلمات دفعة واحدة</div>
+    </div>
+    <div class="mode-card" onclick="goMode('pacer')">
+      <div class="mode-icon">📏</div>
+      <div class="mode-name">مؤشر</div>
+      <div class="mode-desc">خط مرشد يتحرك عبر النص</div>
+    </div>
+    <div class="mode-card" onclick="goMode('periph')">
+      <div class="mode-icon">👁️</div>
+      <div class="mode-name">محيطية</div>
+      <div class="mode-desc">توسيع مجال الرؤية البصرية</div>
+    </div>
+    <div class="mode-card" onclick="goMode('subvoc')">
+      <div class="mode-icon">🤫</div>
+      <div class="mode-name">تقليل همهمة</div>
+      <div class="mode-desc">تمارين تجاوز النطق الصامت</div>
+    </div>
+  </div>
+  <div class="pb-nav"></div>
+</div>
+
+<!-- LIBRARY -->
+<div class="screen" id="screen-library">
+  <div class="lib-header">
+    <div class="search-box">
+      <span>🔍</span>
+      <input type="text" placeholder="ابحث في المكتبة..." id="lib-search" oninput="filterBooks()">
+    </div>
+    <div class="lib-tabs">
+      <button class="lib-tab active" onclick="filterCat('all',this)">الكل</button>
+      <button class="lib-tab" onclick="filterCat('story',this)">قصص</button>
+      <button class="lib-tab" onclick="filterCat('article',this)">مقالات</button>
+      <button class="lib-tab" onclick="filterCat('hadith',this)">أحاديث</button>
+      <button class="lib-tab" onclick="filterCat('custom',this)">نصوصي</button>
+    </div>
+  </div>
+  <div class="books-list" id="books-list"></div>
+  <button class="add-text-btn" onclick="openAddText()">＋ أضف نصك الخاص</button>
+  <div class="pb-nav"></div>
+</div>
+
+<!-- READER -->
+<div class="screen pb-nav" id="screen-reader">
+  <div class="reader-wrap">
+    <div class="reader-book-title" id="reader-book-title">اختر نصاً من المكتبة</div>
+
+    <!-- Mode Selector -->
+    <div class="mode-selector">
+      <button class="mode-btn active" onclick="switchReaderMode('rsvp',this)">RSVP</button>
+      <button class="mode-btn" onclick="switchReaderMode('highlight',this)">تمييز</button>
+      <button class="mode-btn" onclick="switchReaderMode('chunk',this)">مجموعات</button>
+      <button class="mode-btn" onclick="switchReaderMode('pacer',this)">مؤشر</button>
+      <button class="mode-btn" onclick="switchReaderMode('periph',this)">محيطية</button>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls-panel">
+      <div class="ctrl-row">
+        <span class="ctrl-label">السرعة</span>
+        <input type="range" class="ctrl-slider" id="wpm-slider" min="100" max="800" step="25" value="250" oninput="updateWPM(this.value)">
+        <span class="ctrl-val" id="wpm-val">250</span>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">الخط</span>
+        <div class="font-btns">
+          <button class="font-btn active" onclick="setFont('amiri',this)" style="font-family:'Amiri'">أ</button>
+          <button class="font-btn" onclick="setFont('cairo',this)" style="font-family:'Cairo'">أ</button>
+        </div>
+        <span class="ctrl-label" style="min-width:30px">الحجم</span>
+        <input type="range" class="ctrl-slider" id="size-slider" min="16" max="52" step="2" value="32" oninput="updateFontSize(this.value)">
+        <span class="ctrl-val" id="size-val">32</span>
+      </div>
+      <div class="ctrl-row">
+        <span class="ctrl-label">مجموعة</span>
+        <input type="range" class="ctrl-slider" id="chunk-slider" min="1" max="5" step="1" value="1" oninput="updateChunk(this.value)">
+        <span class="ctrl-val" id="chunk-val">1</span>
+      </div>
+    </div>
+
+    <!-- Reading Area -->
+    <div class="reading-area" id="reading-area">
+      <!-- RSVP -->
+      <div class="rsvp-display active" id="rsvp-display">
+        <div class="rsvp-progress-line">
+          <div class="rsvp-progress-fill" id="rsvp-progress" style="width:0%"></div>
+        </div>
+        <div class="rsvp-word-wrap">
+          <div class="rsvp-word" id="rsvp-word">اضغط تشغيل</div>
+        </div>
+        <div class="rsvp-counter">
+          <span id="rsvp-cur">0</span> / <span id="rsvp-total">0</span> كلمة
+        </div>
+      </div>
+      <!-- Highlight -->
+      <div class="highlight-display" id="highlight-display"></div>
+      <!-- Chunk -->
+      <div class="chunk-display" id="chunk-display">
+        <div class="chunk-text" id="chunk-word">اضغط تشغيل</div>
+      </div>
+      <!-- Pacer -->
+      <div class="pacer-display" id="pacer-display">
+        <div class="pacer-line" id="pacer-line" style="top:0"></div>
+        <div id="pacer-text" style="font-family:'Amiri';font-size:18px;line-height:2.4;direction:rtl;"></div>
+      </div>
+      <!-- Peripheral -->
+      <div class="periph-display" id="periph-display">
+        <div class="periph-row" id="periph-row">
+          <span class="periph-word fade" id="pw-r2"></span>
+          <span class="periph-word" id="pw-r1"></span>
+          <span class="periph-dot"></span>
+          <span class="periph-word center" id="pw-c"></span>
+          <span class="periph-dot"></span>
+          <span class="periph-word" id="pw-l1"></span>
+          <span class="periph-word fade" id="pw-l2"></span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">ركّز على النقطة الذهبية</div>
+      </div>
+    </div>
+
+    <!-- Play Controls -->
+    <div class="play-controls">
+      <button class="ctrl-btn" onclick="skipBack()" title="تراجع">⏮</button>
+      <button class="play-btn" id="play-btn" onclick="togglePlay()">▶</button>
+      <button class="ctrl-btn" onclick="skipForward()" title="تقدم">⏭</button>
+      <div class="wpm-display" id="live-wpm">250 كلمة/د</div>
+    </div>
+
+    <!-- Rest Timer -->
+    <div id="rest-timer" style="display:none;text-align:center;padding:10px;">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">⏱ استرح عينيك</div>
+      <div style="font-size:24px;font-weight:900;color:var(--cyan)" id="rest-count">20</div>
+      <div style="font-size:11px;color:var(--text-muted)">انظر لشيء على بُعد 6 أمتار</div>
+    </div>
+
+    <!-- Quiz -->
+    <div class="quiz-panel" id="quiz-panel">
+      <div class="quiz-q" id="quiz-q"></div>
+      <div class="quiz-options" id="quiz-opts"></div>
+      <div class="quiz-result" id="quiz-result"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="screen" id="screen-stats">
+  <div class="stats-screen pb-nav">
+    <div class="stats-header">إحصائياتك</div>
+    <div class="stats-sub">تتبع تطورك في القراءة السريعة</div>
+
+    <div class="big-stat">
+      <div class="big-num" id="stat-avg-wpm">—</div>
+      <div class="big-unit">متوسط كلمة/دقيقة</div>
+    </div>
+
+    <div class="stats-row" style="margin:0 0 12px">
+      <div class="stat-card">
+        <div class="stat-val" id="stat-best">—</div>
+        <div class="stat-lbl">أفضل سرعة</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-total-words">0</div>
+        <div class="stat-lbl">كلمات قُرئت</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="stat-avg-comp">—</div>
+        <div class="stat-lbl">فهم %</div>
+      </div>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="chart-title">سرعة آخر 7 جلسات (كلمة/دقيقة)</div>
+      <div class="bar-chart" id="wpm-chart"></div>
+    </div>
+
+    <div class="section-title" style="padding:0 0 10px">آخر الجلسات</div>
+    <div class="history-list" id="history-list">
+      <div class="history-item" style="justify-content:center;color:var(--text-muted);font-size:13px;">لا توجد جلسات بعد</div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="screen" id="screen-settings">
+  <div class="settings-screen pb-nav">
+    <div class="section-title" style="padding:16px 0 10px;font-size:16px;color:var(--text);">الإعدادات</div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">القراءة</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">لون التمييز</div>
+          <div style="margin-top:8px;" class="color-row" id="color-row"></div>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">السرعة الافتراضية</div>
+          <div class="settings-sub" id="default-wpm-label">250 كلمة/دقيقة</div>
+        </div>
+        <input type="range" class="ctrl-slider" style="width:120px" min="100" max="600" step="25" value="250" oninput="setDefaultWPM(this.value)">
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">مجموعة الكلمات</div>
+          <div class="settings-sub" id="default-chunk-label">1 كلمة</div>
+        </div>
+        <input type="range" class="ctrl-slider" style="width:120px" min="1" max="5" step="1" value="1" oninput="setDefaultChunk(this.value)">
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">التذكيرات</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">قاعدة 20-20-20</div>
+          <div class="settings-sub">استراحة كل 20 دقيقة</div>
+        </div>
+        <button class="toggle on" id="toggle-rest" onclick="toggleSetting('rest',this)"></button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">حفظ مكان التوقف</div>
+          <div class="settings-sub">استئناف من آخر كلمة</div>
+        </div>
+        <button class="toggle on" id="toggle-resume" onclick="toggleSetting('resume',this)"></button>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-title">عن التطبيق</div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">الإصدار</div>
+          <div class="settings-sub">قارئ سريع v1.0</div>
+        </div>
+        <span style="color:var(--text-muted);font-size:13px;">1.0.0</span>
+      </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetAll()">🗑 إعادة تعيين كل الإحصائيات</button>
+  </div>
+</div>
+
+<!-- MODAL: Add Text -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">أضف نصك الخاص</div>
+    <input type="text" placeholder="عنوان النص" id="custom-title"
+      style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none;direction:rtl;">
+    <textarea class="modal-textarea" id="custom-text" placeholder="الصق نصك هنا..."></textarea>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAddText()">إلغاء</button>
+      <button class="btn btn-primary" onclick="saveCustomText()">حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="bn-item active" onclick="switchScreen('home',this)" id="bn-home">
+    <span class="bn-icon">🏠</span>
+    <span class="bn-label">الرئيسية</span>
+  </button>
+  <button class="bn-item" onclick="switchScreen('library',this)" id="bn-library">
+    <span class="bn-icon">📚</span>
+    <span class="bn-label">المكتبة</span>
+  </button>
+  <button class="bn-item" onclick="switchScreen('reader',this)" id="bn-reader">
+    <span class="bn-icon">▶️</span>
+    <span class="bn-label">القراءة</span>
+  </button>
+  <button class="bn-item" onclick="switchScreen('stats',this)" id="bn-stats">
+    <span class="bn-icon">📊</span>
+    <span class="bn-label">إحصائيات</span>
+  </button>
+  <button class="bn-item" onclick="switchScreen('settings',this)" id="bn-settings">
+    <span class="bn-icon">⚙️</span>
+    <span class="bn-label">الإعدادات</span>
+  </button>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const BOOKS = [
+  {
+    id:1, cat:'story', icon:'📖', color:'#2d4a3e',
+    title:'الأمير الصغير',author:'أنطوان دو سانت-إكزوبيري',
+    difficulty:'easy',words:420,
+    text:`في يوم من الأيام، حطّت طائرتي في صحراء الصحراء الكبرى. كان محركها قد تعطّل، ولم يكن معي ميكانيكي ولا مسافرون، وكان عليّ أن أحاول إصلاحها وحدي. كانت مسألة حياة أو موت بالنسبة إليّ، إذ لم يكن معي من الماء إلا ما يكفي لأسبوع واحد. ففي الليلة الأولى نمت على الرمال على بعد آلاف الأميال عن أي أرض مأهولة، وكنت أكثر وحدةً بكثير من أي ناجٍ غريق في وسط المحيط. فتصوّروا دهشتي حين استيقظت عند الفجر على صوت غريب صغير يقول: من فضلك... ارسم لي خروفاً! قفزت واقفاً كما لو أنني صُعقت بالبرق. فركت عيني جيداً. ونظرت من حولي. فرأيت ولداً صغيراً غير عادي يحدّق فيّ بجدية بالغة. هنا أصوّر أجمل صورة لأمير صغير رأيته يوماً ما.`,
+    quiz:[{q:'أين كانت الطائرة؟',opts:['في الغابة','في الصحراء الكبرى','في الجبال','في البحر'],a:1},
+          {q:'ما الذي طلبه الأمير الصغير؟',opts:['ماء','طعام','رسم خروف','مساعدة'],a:2}]
+  },
+  {
+    id:2, cat:'article', icon:'🧠', color:'#2d3a4a',
+    title:'علم القراءة السريعة',author:'مجلة العقل والعلم',
+    difficulty:'med',words:380,
+    text:`القراءة السريعة هي مجموعة من الأساليب التي تهدف إلى زيادة سرعة القراءة دون التضحية بمستوى الفهم. تعتمد هذه التقنيات على فهم آليات حركة العين وطريقة معالجة الدماغ للمعلومات البصرية. في المتوسط يقرأ الإنسان البالغ ما بين مئتين وخمسين إلى ثلاثمئة كلمة في الدقيقة، في حين يمكن للقارئ المدرّب الوصول إلى خمسمئة كلمة أو أكثر مع الحفاظ على مستوى فهم جيد. تتضمن أبرز تقنيات القراءة السريعة: تقنية العرض التسلسلي السريع RSVP التي تعرض الكلمات واحدة تلو الأخرى في نقطة مركزية ثابتة مما يقلل من حركة العين، وتقنية القراءة بالكتل التي تدرّب العين على التقاط مجموعات من الكلمات دفعة واحدة. كذلك تعمل تمارين الرؤية المحيطية على توسيع مجال الرؤية الأفقي مما يقلل من عدد توقفات العين على كل سطر. أما التهجئة الداخلية أو ما يعرف بالنطق الصامت فهي أحد أكبر العوائق أمام القراءة السريعة لأن الدماغ يربط الكلمة المرئية بصوتها الداخلي مما يُبطئ معالجة المعلومات.`,
+    quiz:[{q:'ما متوسط سرعة القراءة لدى الإنسان البالغ؟',opts:['100-150 كلمة/دقيقة','250-300 كلمة/دقيقة','500-600 كلمة/دقيقة','1000 كلمة/دقيقة'],a:1},
+          {q:'ما أكبر عائق أمام القراءة السريعة؟',opts:['حركة العين','التهجئة الداخلية','قلة التركيز','صعوبة النص'],a:1}]
+  },
+  {
+    id:3, cat:'hadith', icon:'🌙', color:'#3a2d4a',
+    title:'أحاديث نبوية مختارة',author:'صحيح البخاري ومسلم',
+    difficulty:'easy',words:200,
+    text:`عن أبي هريرة رضي الله عنه قال: قال رسول الله صلى الله عليه وسلم: من سلك طريقاً يلتمس فيه علماً سهّل الله له به طريقاً إلى الجنة. وعن ابن مسعود رضي الله عنه قال: قال رسول الله صلى الله عليه وسلم: لا حسد إلا في اثنتين: رجل آتاه الله مالاً فسلّطه على هلكته في الحق، ورجل آتاه الله الحكمة فهو يقضي بها ويُعلّمها. وعن أبي الدرداء رضي الله عنه قال: سمعت رسول الله صلى الله عليه وسلم يقول: من سلك طريقاً يبتغي فيه علماً سلك الله به طريقاً إلى الجنة، وإن الملائكة لتضع أجنحتها لطالب العلم رضاً بما يصنع، وإن العالم ليستغفر له من في السماوات ومن في الأرض حتى الحيتان في الماء.`,
+    quiz:[{q:'ماذا يُسهّل الله لمن سلك طريق العلم؟',opts:['المال','طريقاً إلى الجنة','الصحة','السلطة'],a:1},
+          {q:'من يستغفر للعالم؟',opts:['المؤمنون فقط','الملائكة فقط','كل من في السماوات والأرض','العلماء'],a:2}]
+  },
+  {
+    id:4, cat:'story', icon:'🏺', color:'#4a3a2d',
+    title:'ألف ليلة وليلة',author:'تراث عربي',
+    difficulty:'hard',words:350,
+    text:`حُكي أن ملكاً من ملوك الزمان كان له ولدان، اسم الأول شهريار واسم الثاني شاه زمان. وكان شهريار الملك الأكبر، ولما كبرا في السن أعطى أبوهما شهريار ملك بلاد الهند والصين وأعطى شاه زمان ملك سمرقند العجم. وكان كل منهما في مملكته ملك عادلاً محباً للخير. مضت السنون وطال الفراق بين الأخوين، فاشتاق شهريار إلى أخيه شاه زمان وأرسل إليه وزيره الأول ليحضره إليه. فلما وصل الوزير إلى سمرقند أخبر شاه زمان بما أرسله إليه أخوه فقال شاه زمان: سمعاً وطاعة. وأمر بتجهيز الأسفار، فجهّزوا خيامهم وأمتعتهم وأجمل الهدايا. ثم خرج الوزير يودّع أخاه بعدما جهّز كل شيء وانتظر النهار ليسافر.`,
+    quiz:[{q:'ما اسم الملك الأكبر؟',opts:['شاه زمان','شهريار','الوزير','أبوهما'],a:1},
+          {q:'ما ملك شاه زمان؟',opts:['الهند والصين','مصر','سمرقند العجم','بغداد'],a:2}]
+  },
+  {
+    id:5, cat:'article', icon:'🔬', color:'#2a3d2a',
+    title:'الدماغ والذاكرة',author:'مجلة ساينس',
+    difficulty:'hard',words:310,
+    text:`يُعدّ الدماغ البشري من أكثر الأجهزة تعقيداً في الكون المعروف، إذ يحتوي على ما يزيد على مئة مليار خلية عصبية تترابط فيما بينها بشبكة من التشابكات تُقدَّر بمئة تريليون وصلة. تنتشر الذكريات في مناطق متعددة من الدماغ وليس في منطقة واحدة كما كان يُعتقد سابقاً، فالذكريات الإجرائية كتعلّم ركوب الدراجة تُختزن في المخيخ والعقد القاعدية، بينما الذكريات العاطفية تعتمد على اللوزة الدماغية، أما الذكريات الواضحة كحفظ الأسماء والوجوه فتعتمد على قنطرة الذاكرة في الحُصين. ويرى علماء الأعصاب أن النوم الجيد أحد أهم عوامل تعزيز الذاكرة وتوطيدها، إذ يقوم الدماغ خلال النوم بمراجعة المعلومات المُكتسبة خلال النهار وترسيخها في الذاكرة طويلة الأمد.`,
+    quiz:[{q:'كم خلية عصبية يحتوي الدماغ؟',opts:['مليار','عشرة مليارات','مئة مليار','مليار مليار'],a:2},
+          {q:'أين تُختزن الذكريات العاطفية؟',opts:['الحُصين','اللوزة الدماغية','المخيخ','القشرة'],a:1}]
+  }
+];
+
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  currentScreen: 'home',
+  currentMode: 'rsvp',
+  currentBook: null,
+  words: [],
+  wordIndex: 0,
+  chunkSize: 1,
+  wpm: 250,
+  fontSize: 32,
+  font: 'amiri',
+  isPlaying: false,
+  timer: null,
+  restTimer: null,
+  restEnabled: true,
+  resumeEnabled: true,
+  highlightColor: '#d4a843',
+  sessionStart: null,
+  readWords: 0,
+  customBooks: [],
+  filterCat: 'all',
+  filterSearch: '',
+  defaultWPM: 250,
+  defaultChunk: 1,
+};
+
+// ============================================================
+// STORAGE
+// ============================================================
+function loadStorage() {
+  try {
+    const s = JSON.parse(localStorage.getItem('qsari-settings') || '{}');
+    if (s.wpm) state.wpm = s.wpm;
+    if (s.chunkSize) state.chunkSize = s.chunkSize;
+    if (s.font) state.font = s.font;
+    if (s.fontSize) state.fontSize = s.fontSize;
+    if (s.highlightColor) state.highlightColor = s.highlightColor;
+    if (s.restEnabled !== undefined) state.restEnabled = s.restEnabled;
+    if (s.resumeEnabled !== undefined) state.resumeEnabled = s.resumeEnabled;
+    if (s.defaultWPM) state.defaultWPM = s.defaultWPM;
+    state.customBooks = JSON.parse(localStorage.getItem('qsari-books') || '[]');
+  } catch(e){}
+}
+
+function saveSettings() {
+  localStorage.setItem('qsari-settings', JSON.stringify({
+    wpm: state.wpm, chunkSize: state.chunkSize,
+    font: state.font, fontSize: state.fontSize,
+    highlightColor: state.highlightColor,
+    restEnabled: state.restEnabled,
+    resumeEnabled: state.resumeEnabled,
+    defaultWPM: state.defaultWPM,
+  }));
+}
+
+function getSessions() {
+  return JSON.parse(localStorage.getItem('qsari-sessions') || '[]');
+}
+
+function saveSession(sess) {
+  const sessions = getSessions();
+  sessions.unshift(sess);
+  if (sessions.length > 50) sessions.pop();
+  localStorage.setItem('qsari-sessions', JSON.stringify(sessions));
+}
+
+function getResume(bookId) {
+  const r = JSON.parse(localStorage.getItem('qsari-resume') || '{}');
+  return r[bookId] || 0;
+}
+
+function saveResume(bookId, idx) {
+  const r = JSON.parse(localStorage.getItem('qsari-resume') || '{}');
+  r[bookId] = idx;
+  localStorage.setItem('qsari-resume', JSON.stringify(r));
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function switchScreen(name, btnEl) {
+  stopReading();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  if (btnEl) btnEl.classList.add('active');
+  state.currentScreen = name;
+  if (name === 'stats') renderStats();
+  if (name === 'library') renderBooks();
+  if (name === 'settings') renderSettings();
+  if (name === 'home') updateHomeStats();
+}
+
+function goMode(mode) {
+  state.currentMode = mode;
+  switchScreen('reader', document.getElementById('bn-reader'));
+  switchReaderModeByName(mode);
+}
+
+// ============================================================
+// LIBRARY
+// ============================================================
+function allBooks() {
+  return [...BOOKS, ...state.customBooks];
+}
+
+function renderBooks() {
+  const list = document.getElementById('books-list');
+  const q = state.filterSearch.trim();
+  let books = allBooks();
+  if (state.filterCat !== 'all') books = books.filter(b => b.cat === state.filterCat);
+  if (q) books = books.filter(b => b.title.includes(q) || (b.author && b.author.includes(q)));
+  if (!books.length) { list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:14px;">لا توجد نصوص</div>'; return; }
+  list.innerHTML = books.map(b => `
+    <div class="book-card" onclick="openBook(${b.id || b._id})">
+      <div class="book-cover" style="background:${b.color||'#2a3040'}">${b.icon||'📄'}</div>
+      <div class="book-info">
+        <div class="book-title">${b.title}</div>
+        <div class="book-author">${b.author||'مستخدم'}</div>
+        <div class="book-meta">
+          <span class="book-tag">~${b.words||countWords(b.text)} كلمة</span>
+          <span class="book-tag diff-${b.difficulty||'easy'}">${{easy:'سهل',med:'متوسط',hard:'صعب'}[b.difficulty||'easy']}</span>
+          <span class="book-tag">${{story:'قصص',article:'مقالات',hadith:'أحاديث',custom:'نصوصي'}[b.cat]||'نص'}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterCat(cat, el) {
+  state.filterCat = cat;
+  document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderBooks();
+}
+
+function filterBooks() {
+  state.filterSearch = document.getElementById('lib-search').value;
+  renderBooks();
+}
+
+function countWords(t) { return t.split(/\s+/).filter(Boolean).length; }
+
+function openBook(id) {
+  const book = allBooks().find(b => (b.id || b._id) === id);
+  if (!book) return;
+  state.currentBook = book;
+  state.words = book.text.split(/\s+/).filter(Boolean);
+  const resume = state.resumeEnabled ? getResume(id) : 0;
+  state.wordIndex = Math.min(resume, state.words.length - 1);
+  document.getElementById('reader-book-title').textContent = book.title;
+  document.getElementById('rsvp-total').textContent = state.words.length;
+  document.getElementById('quiz-panel').classList.remove('active');
+  switchScreen('reader', document.getElementById('bn-reader'));
+  initHighlightMode();
+  initPacerMode();
+  renderRSVP();
+  showToast('تم تحميل: ' + book.title);
+}
+
+// ============================================================
+// ADD CUSTOM TEXT
+// ============================================================
+function openAddText() {
+  document.getElementById('add-modal').classList.add('open');
+}
+function closeAddText() {
+  document.getElementById('add-modal').classList.remove('open');
+}
+function saveCustomText() {
+  const title = document.getElementById('custom-title').value.trim();
+  const text = document.getElementById('custom-text').value.trim();
+  if (!text) { showToast('أدخل نصاً!'); return; }
+  const book = {
+    _id: Date.now(), cat:'custom', icon:'📝', color:'#3a3a2d',
+    title: title || 'نص مخصص', author:'أنت',
+    difficulty:'easy', words: countWords(text), text
+  };
+  state.customBooks.push(book);
+  localStorage.setItem('qsari-books', JSON.stringify(state.customBooks));
+  document.getElementById('custom-title').value = '';
+  document.getElementById('custom-text').value = '';
+  closeAddText();
+  renderBooks();
+  showToast('تم الحفظ ✓');
+}
+
+// ============================================================
+// READER MODES
+// ============================================================
+function switchReaderMode(mode, el) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  switchReaderModeByName(mode);
+}
+
+function switchReaderModeByName(mode) {
+  stopReading();
+  state.currentMode = mode;
+  ['rsvp','highlight','chunk','pacer','periph'].forEach(m => {
+    document.getElementById(m + '-display').classList.remove('active');
+  });
+  const map = {rsvp:'rsvp',highlight:'highlight',chunk:'chunk',pacer:'pacer',periph:'periph',subvoc:'rsvp'};
+  const target = map[mode] || 'rsvp';
+  document.getElementById(target + '-display').classList.add('active');
+
+  // Sync mode-btns
+  document.querySelectorAll('.mode-btn').forEach(b => {
+    if (b.textContent.trim() === {rsvp:'RSVP',highlight:'تمييز',chunk:'مجموعات',pacer:'مؤشر',periph:'محيطية'}[mode]) {
+      b.classList.add('active');
+    }
+  });
+}
+
+// ============================================================
+// RSVP
+// ============================================================
+function renderRSVP() {
+  if (!state.words.length) return;
+  const w = state.words[state.wordIndex] || '';
+  const el = document.getElementById('rsvp-word');
+  // ORP highlight (roughly 1/3 from start for Arabic)
+  el.textContent = w;
+  document.getElementById('rsvp-cur').textContent = state.wordIndex + 1;
+  document.getElementById('rsvp-total').textContent = state.words.length;
+  const pct = state.words.length ? (state.wordIndex / state.words.length * 100) : 0;
+  document.getElementById('rsvp-progress').style.width = pct + '%';
+}
+
+// ============================================================
+// HIGHLIGHT
+// ============================================================
+function initHighlightMode() {
+  const el = document.getElementById('highlight-display');
+  if (!state.words.length) { el.innerHTML = '<span style="color:var(--text-muted)">لا يوجد نص</span>'; return; }
+  el.innerHTML = state.words.map((w,i) =>
+    `<span class="h-word${i < state.wordIndex ? ' read':''}" id="hw-${i}" onclick="jumpTo(${i})">${w} </span>`
+  ).join('');
+}
+
+function updateHighlight() {
+  document.querySelectorAll('.h-word').forEach((el,i) => {
+    el.className = 'h-word' + (i < state.wordIndex ? ' read' : i === state.wordIndex ? ' current' : '');
+  });
+  const cur = document.getElementById('hw-' + state.wordIndex);
+  if (cur) cur.scrollIntoView({block:'center',behavior:'smooth'});
+}
+
+function jumpTo(i) { state.wordIndex = i; renderRSVP(); updateHighlight(); }
+
+// ============================================================
+// PACER
+// ============================================================
+function initPacerMode() {
+  const el = document.getElementById('pacer-text');
+  if (!state.words.length) return;
+  const lineSize = 8;
+  let html = '';
+  for (let i=0; i<state.words.length; i+=lineSize) {
+    const chunk = state.words.slice(i, i+lineSize).join(' ');
+    html += `<div style="min-height:2.4em" id="pl-${Math.floor(i/lineSize)}">${chunk}</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function updatePacer() {
+  const lineSize = 8;
+  const lineIdx = Math.floor(state.wordIndex / lineSize);
+  const lineEl = document.getElementById('pl-' + lineIdx);
+  const container = document.getElementById('pacer-display');
+  const lineEl2 = document.getElementById('pacer-line');
+  if (lineEl) {
+    const top = lineEl.offsetTop;
+    lineEl2.style.top = top + 'px';
+    container.scrollTop = top - 80;
+  }
+}
+
+// ============================================================
+// PERIPHERAL
+// ============================================================
+function updatePeriph() {
+  if (!state.words.length) return;
+  const i = state.wordIndex;
+  const w = (idx) => state.words[idx] || '';
+  document.getElementById('pw-c').textContent = w(i);
+  document.getElementById('pw-r1').textContent = w(i+1);
+  document.getElementById('pw-r2').textContent = w(i+2);
+  document.getElementById('pw-l1').textContent = w(i-1);
+  document.getElementById('pw-l2').textContent = w(i-2);
+}
+
+// ============================================================
+// PLAYBACK
+// ============================================================
+function togglePlay() {
+  if (state.isPlaying) stopReading();
+  else startReading();
+}
+
+function startReading() {
+  if (!state.words.length) { showToast('اختر نصاً أولاً'); return; }
+  if (state.wordIndex >= state.words.length) state.wordIndex = 0;
+  state.isPlaying = true;
+  state.sessionStart = state.sessionStart || Date.now();
+  document.getElementById('play-btn').textContent = '⏸';
+  document.getElementById('live-wpm').textContent = state.wpm + ' كلمة/د';
+  scheduleNext();
+  startRestTimer();
+}
+
+function stopReading() {
+  state.isPlaying = false;
+  if (state.timer) { clearTimeout(state.timer); state.timer = null; }
+  document.getElementById('play-btn').textContent = '▶';
+  if (state.currentBook && state.resumeEnabled) {
+    saveResume(state.currentBook.id || state.currentBook._id, state.wordIndex);
+  }
+}
+
+function scheduleNext() {
+  if (!state.isPlaying) return;
+  const delay = Math.round(60000 / state.wpm / Math.max(1, state.chunkSize));
+  state.timer = setTimeout(() => {
+    advanceWord();
+    scheduleNext();
+  }, delay);
+}
+
+function advanceWord() {
+  const step = state.currentMode === 'chunk' || state.currentMode === 'periph'
+    ? state.chunkSize : 1;
+  state.wordIndex += step;
+  state.readWords += step;
+
+  if (state.wordIndex >= state.words.length) {
+    stopReading();
+    state.wordIndex = state.words.length - 1;
+    onFinished();
+    return;
+  }
+
+  switch(state.currentMode) {
+    case 'rsvp': case 'subvoc': renderRSVP(); break;
+    case 'highlight': updateHighlight(); break;
+    case 'chunk': renderChunk(); break;
+    case 'pacer': updatePacer(); break;
+    case 'periph': updatePeriph(); break;
+  }
+}
+
+function renderChunk() {
+  const chunk = state.words.slice(state.wordIndex, state.wordIndex + state.chunkSize).join(' ');
+  const el = document.getElementById('chunk-word');
+  el.style.animation = 'none';
+  el.offsetHeight;
+  el.style.animation = '';
+  el.textContent = chunk;
+}
+
+function skipBack() {
+  state.wordIndex = Math.max(0, state.wordIndex - 20);
+  renderRSVP(); updateHighlight(); updatePacer(); updatePeriph();
+}
+function skipForward() {
+  state.wordIndex = Math.min(state.words.length - 1, state.wordIndex + 20);
+  renderRSVP(); updateHighlight(); updatePacer(); updatePeriph();
+}
+
+// ============================================================
+// FINISHED
+// ============================================================
+function onFinished() {
+  if (!state.currentBook || !state.sessionStart) return;
+  const elapsed = (Date.now() - state.sessionStart) / 60000;
+  const actualWPM = Math.round(state.readWords / Math.max(elapsed, 0.1));
+  showToast('أحسنت! انتهيت من القراءة 🎉');
+  state.sessionStart = null;
+  state.readWords = 0;
+  showQuiz();
+  // Save session after quiz
+  window._pendingWPM = actualWPM;
+}
+
+// ============================================================
+// QUIZ
+// ============================================================
+function showQuiz() {
+  const book = state.currentBook;
+  if (!book || !book.quiz || !book.quiz.length) return;
+  const q = book.quiz[Math.floor(Math.random() * book.quiz.length)];
+  const panel = document.getElementById('quiz-panel');
+  panel.classList.add('active');
+  document.getElementById('quiz-q').textContent = q.q;
+  document.getElementById('quiz-result').style.display = 'none';
+  document.getElementById('quiz-opts').innerHTML = q.opts.map((o,i) =>
+    `<button class="quiz-opt" onclick="answerQuiz(${i},${q.a},this)">${o}</button>`
+  ).join('');
+}
+
+function answerQuiz(chosen, correct, el) {
+  document.querySelectorAll('.quiz-opt').forEach(b => b.style.pointerEvents='none');
+  const isCorrect = chosen === correct;
+  el.classList.add(isCorrect ? 'correct' : 'wrong');
+  document.querySelectorAll('.quiz-opt')[correct].classList.add('correct');
+  const res = document.getElementById('quiz-result');
+  res.style.display = 'block';
+  res.style.background = isCorrect ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)';
+  res.style.color = isCorrect ? 'var(--green)' : 'var(--red)';
+  res.textContent = isCorrect ? '✓ إجابة صحيحة! أحسنت' : '✗ إجابة خاطئة. الصحيحة ملوّنة بالأخضر';
+  const comp = isCorrect ? 100 : 0;
+  if (window._pendingWPM) {
+    saveSession({
+      title: state.currentBook.title,
+      wpm: window._pendingWPM,
+      comp,
+      date: new Date().toLocaleDateString('ar')
+    });
+    window._pendingWPM = null;
+  }
+  updateHomeStats();
+}
+
+// ============================================================
+// REST TIMER (20-20-20)
+// ============================================================
+let restInterval = null, restSeconds = 0;
+function startRestTimer() {
+  if (!state.restEnabled) return;
+  clearInterval(restInterval);
+  restSeconds = 20 * 60;
+  restInterval = setInterval(() => {
+    restSeconds--;
+    if (restSeconds <= 0) {
+      clearInterval(restInterval);
+      triggerRest();
+    }
+  }, 1000);
+}
+function triggerRest() {
+  stopReading();
+  const panel = document.getElementById('rest-timer');
+  panel.style.display = 'block';
+  let cnt = 20;
+  document.getElementById('rest-count').textContent = cnt;
+  const t = setInterval(() => {
+    cnt--;
+    document.getElementById('rest-count').textContent = cnt;
+    if (cnt <= 0) {
+      clearInterval(t);
+      panel.style.display = 'none';
+      startReading();
+    }
+  }, 1000);
+}
+
+// ============================================================
+// CONTROLS
+// ============================================================
+function updateWPM(v) {
+  state.wpm = parseInt(v);
+  document.getElementById('wpm-val').textContent = v;
+  document.getElementById('live-wpm').textContent = v + ' كلمة/د';
+  saveSettings();
+}
+
+function updateFontSize(v) {
+  state.fontSize = parseInt(v);
+  document.getElementById('size-val').textContent = v;
+  document.getElementById('rsvp-word').style.fontSize = v + 'px';
+  document.getElementById('chunk-word').style.fontSize = (parseInt(v)*0.8) + 'px';
+  saveSettings();
+}
+
+function updateChunk(v) {
+  state.chunkSize = parseInt(v);
+  document.getElementById('chunk-val').textContent = v;
+  saveSettings();
+}
+
+function setFont(f, el) {
+  state.font = f;
+  document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const fam = f === 'amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
+  document.getElementById('rsvp-word').style.fontFamily = fam;
+  document.getElementById('chunk-word').style.fontFamily = fam;
+  document.getElementById('highlight-display').style.fontFamily = fam;
+  saveSettings();
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function renderStats() {
+  const sessions = getSessions();
+  if (!sessions.length) {
+    document.getElementById('stat-avg-wpm').textContent = '—';
+    document.getElementById('stat-best').textContent = '—';
+    document.getElementById('stat-total-words').textContent = '0';
+    document.getElementById('stat-avg-comp').textContent = '—';
+    document.getElementById('wpm-chart').innerHTML = '<div style="color:var(--text-muted);font-size:12px">لا بيانات</div>';
+    document.getElementById('history-list').innerHTML = '<div class="history-item" style="justify-content:center;color:var(--text-muted);font-size:13px">لا توجد جلسات بعد</div>';
+    return;
+  }
+  const avg = Math.round(sessions.reduce((s,x) => s+x.wpm,0) / sessions.length);
+  const best = Math.max(...sessions.map(x=>x.wpm));
+  const totalW = sessions.reduce((s,x) => s + Math.round(x.wpm*5),0);
+  const avgComp = Math.round(sessions.filter(x=>x.comp!==undefined).reduce((s,x)=>s+x.comp,0) / Math.max(sessions.filter(x=>x.comp!==undefined).length,1));
+  document.getElementById('stat-avg-wpm').textContent = avg;
+  document.getElementById('stat-best').textContent = best;
+  document.getElementById('stat-total-words').textContent = totalW.toLocaleString('ar');
+  document.getElementById('stat-avg-comp').textContent = avgComp + '%';
+
+  // Chart
+  const last7 = sessions.slice(0,7).reverse();
+  const maxWpm = Math.max(...last7.map(x=>x.wpm), 1);
+  document.getElementById('wpm-chart').innerHTML = last7.map(s => `
+    <div class="bar-item">
+      <div class="bar-val">${s.wpm}</div>
+      <div class="bar" style="height:${Math.round(s.wpm/maxWpm*80)}px"></div>
+      <div class="bar-lbl">${s.date||''}</div>
+    </div>
+  `).join('');
+
+  // History
+  document.getElementById('history-list').innerHTML = sessions.slice(0,10).map(s => `
+    <div class="history-item">
+      <div class="hist-info">
+        <div class="hist-title">${s.title||'نص'}</div>
+        <div class="hist-date">${s.date||''} ${s.comp!==undefined?'· فهم '+s.comp+'%':''}</div>
+      </div>
+      <div class="hist-wpm">${s.wpm}</div>
+    </div>
+  `).join('');
+}
+
+function updateHomeStats() {
+  const sessions = getSessions();
+  if (!sessions.length) return;
+  const avg = Math.round(sessions.reduce((s,x)=>s+x.wpm,0)/sessions.length);
+  document.getElementById('home-wpm').textContent = avg;
+  document.getElementById('home-sessions').textContent = sessions.length;
+  const withComp = sessions.filter(x=>x.comp!==undefined);
+  if (withComp.length) {
+    const ac = Math.round(withComp.reduce((s,x)=>s+x.comp,0)/withComp.length);
+    document.getElementById('home-comp').textContent = ac + '%';
+  }
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+const COLORS = ['#d4a843','#38bdf8','#4ade80','#f87171','#c084fc','#fb923c','#ffffff'];
+
+function renderSettings() {
+  const cr = document.getElementById('color-row');
+  cr.innerHTML = COLORS.map(c =>
+    `<div class="color-swatch${c===state.highlightColor?' selected':''}" style="background:${c}" onclick="setHighlightColor('${c}',this)"></div>`
+  ).join('');
+  document.getElementById('toggle-rest').className = 'toggle' + (state.restEnabled ? ' on' : '');
+  document.getElementById('toggle-resume').className = 'toggle' + (state.resumeEnabled ? ' on' : '');
+}
+
+function setHighlightColor(c, el) {
+  state.highlightColor = c;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  document.documentElement.style.setProperty('--gold', c);
+  saveSettings();
+}
+
+function toggleSetting(key, el) {
+  if (key==='rest') state.restEnabled = !state.restEnabled;
+  if (key==='resume') state.resumeEnabled = !state.resumeEnabled;
+  el.classList.toggle('on');
+  saveSettings();
+}
+
+function setDefaultWPM(v) {
+  state.defaultWPM = parseInt(v);
+  document.getElementById('default-wpm-label').textContent = v + ' كلمة/دقيقة';
+  state.wpm = parseInt(v);
+  document.getElementById('wpm-slider').value = v;
+  document.getElementById('wpm-val').textContent = v;
+  saveSettings();
+}
+
+function setDefaultChunk(v) {
+  state.defaultChunk = parseInt(v);
+  document.getElementById('default-chunk-label').textContent = v + ' كلمة';
+  state.chunkSize = parseInt(v);
+  saveSettings();
+}
+
+function resetAll() {
+  if (!confirm('هل أنت متأكد؟ سيتم حذف كل الإحصائيات.')) return;
+  localStorage.removeItem('qsari-sessions');
+  localStorage.removeItem('qsari-resume');
+  showToast('تم إعادة التعيين');
+  renderStats();
+  updateHomeStats();
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  loadStorage();
+  renderBooks();
+  updateHomeStats();
+  // Apply saved settings to sliders
+  document.getElementById('wpm-slider').value = state.wpm;
+  document.getElementById('wpm-val').textContent = state.wpm;
+  document.getElementById('size-slider').value = state.fontSize;
+  document.getElementById('size-val').textContent = state.fontSize;
+  document.getElementById('chunk-slider').value = state.chunkSize;
+  document.getElementById('chunk-val').textContent = state.chunkSize;
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
