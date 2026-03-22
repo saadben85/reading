@@ -7,1596 +7,841 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="قارئ سريع">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>قارئ سريع</title>
-<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+
+<script>
+// ✅ MANIFEST + SW — يُنفَّذان بعد جهوز الصفحة كاملاً
+function initPWA(){
+  // Manifest
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="110" fill="#0a0c12"/><rect x="140" y="150" width="232" height="280" rx="16" fill="#161a24" stroke="#2c3350" stroke-width="3"/><line x1="256" y1="150" x2="256" y2="430" stroke="#2c3350" stroke-width="3"/><rect x="162" y="185" width="75" height="8" rx="4" fill="#d4a843"/><rect x="162" y="205" width="60" height="6" rx="3" fill="#4a5270"/><rect x="162" y="220" width="70" height="6" rx="3" fill="#4a5270"/><rect x="162" y="235" width="55" height="6" rx="3" fill="#4a5270"/><rect x="268" y="215" width="96" height="22" rx="6" fill="#d4a843" opacity="0.9"/><rect x="272" y="248" width="70" height="6" rx="3" fill="#4a5270"/><path d="M175 345 L220 345 L220 333 L248 357 L220 381 L220 369 L175 369Z" fill="#d4a843"/><text x="310" y="375" font-family="serif" font-size="42" fill="#d4a843" text-anchor="middle">ق</text></svg>`;
+  const iconUrl='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(svg)));
+  const mf={name:'قارئ سريع',short_name:'قارئ سريع',description:'تطبيق القراءة السريعة',start_url:'./',display:'standalone',orientation:'portrait',background_color:'#0a0c12',theme_color:'#0a0c12',lang:'ar',dir:'rtl',icons:[{src:iconUrl,sizes:'192x192',type:'image/svg+xml',purpose:'any maskable'},{src:iconUrl,sizes:'512x512',type:'image/svg+xml',purpose:'any maskable'}]};
+  const blob=new Blob([JSON.stringify(mf)],{type:'application/json'});
+  const ml=document.createElement('link'); ml.rel='manifest'; ml.href=URL.createObjectURL(blob);
+  document.documentElement.appendChild(ml);
+  const al=document.createElement('link'); al.rel='apple-touch-icon'; al.href=iconUrl;
+  document.documentElement.appendChild(al);
+
+  // SW مدمج
+  if('serviceWorker' in navigator){
+    const swCode=`
+const C='qs-v3';
+self.addEventListener('install',e=>{ self.skipWaiting(); });
+self.addEventListener('activate',e=>{
+  e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==C).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));
+});
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET') return;
+  e.respondWith(
+    caches.open(C).then(cache=>
+      cache.match(e.request).then(cached=>{
+        const net=fetch(e.request).then(resp=>{
+          if(resp&&resp.status===200&&resp.type!=='opaque') cache.put(e.request,resp.clone());
+          return resp;
+        }).catch(()=>cached||new Response('',{status:503}));
+        return cached||net;
+      })
+    )
+  );
+});`;
+    const swUrl=URL.createObjectURL(new Blob([swCode],{type:'application/javascript'}));
+    navigator.serviceWorker.register(swUrl,{scope:'./'}).then(reg=>{
+      const doCache=()=>caches.open('qs-v3').then(c=>c.add(location.href).catch(()=>{}));
+      if(reg.active) doCache();
+      else{ const w=reg.installing||reg.waiting; if(w) w.addEventListener('statechange',ev=>{ if(ev.target.state==='activated') doCache(); }); }
+    }).catch(()=>{});
+  }
+}
+</script>
+
 <style>
-:root {
-  --bg: #0a0c12;
-  --surface: #12151f;
-  --surface2: #1a1f2e;
-  --surface3: #222840;
-  --border: #2c3350;
-  --gold: #d4a843;
-  --gold-light: #f0c96a;
-  --gold-dim: rgba(212,168,67,0.15);
-  --cyan: #38bdf8;
-  --red: #f87171;
-  --green: #4ade80;
-  --text: #e2e6f3;
-  --text-muted: #6b7498;
-  --text-dim: #3d4460;
-  --r: 12px;
-  --font-ui: 'Cairo', sans-serif;
-  --font-read: 'Amiri', serif;
+:root{
+  --bg:#0a0c12;--surface:#12151f;--surface2:#1a1f2e;--surface3:#222840;
+  --border:#2c3350;--gold:#d4a843;--gold-light:#f0c96a;--gold-dim:rgba(212,168,67,0.15);
+  --cyan:#38bdf8;--red:#f87171;--green:#4ade80;
+  --text:#e2e6f3;--text-muted:#6b7498;--text-dim:#3d4460;--r:12px;
+  --ff:'Segoe UI',Tahoma,Arial,sans-serif;
+  --ff-read:Georgia,'Times New Roman',serif;
 }
-
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--ff);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;top:-200px;right:-200px;width:500px;height:500px;background:radial-gradient(circle,rgba(212,168,67,0.05),transparent 70%);pointer-events:none;}
 
-body{
-  font-family:var(--font-ui);
-  background:var(--bg);
-  color:var(--text);
-  min-height:100vh;
-  overflow-x:hidden;
-  position:relative;
-}
+/* NAV */
+.nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(10,12,18,0.96);border-bottom:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;}
+.logo{font-size:19px;font-weight:900;color:var(--gold);}
+.logo span{font-weight:300;font-size:11px;color:var(--text-muted);}
+.offline-pill{font-size:10px;font-weight:700;background:rgba(74,222,128,0.12);color:var(--green);border:1px solid rgba(74,222,128,0.25);border-radius:20px;padding:3px 10px;display:none;}
+.offline-pill.show{display:block;}
 
-body::before{
-  content:'';
-  position:fixed;
-  top:-200px; right:-200px;
-  width:500px; height:500px;
-  background: radial-gradient(circle, rgba(212,168,67,0.06) 0%, transparent 70%);
-  pointer-events:none;
-  z-index:0;
-}
-
-/* ===== NAV ===== */
-.nav{
-  position:fixed;top:0;left:0;right:0;z-index:200;
-  background:rgba(10,12,18,0.9);
-  backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);
-  padding:12px 16px;
-  display:flex;align-items:center;justify-content:space-between;
-}
-.nav-logo{
-  font-size:20px;font-weight:900;
-  background:linear-gradient(135deg,var(--gold),var(--gold-light));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  letter-spacing:-0.5px;
-}
-.nav-logo span{font-weight:300;font-size:13px;color:var(--text-muted);-webkit-text-fill-color:var(--text-muted);}
-.nav-tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;}
-.nav-tab{
-  padding:6px 14px;border-radius:7px;border:none;
-  background:transparent;color:var(--text-muted);
-  font-family:var(--font-ui);font-size:13px;font-weight:600;
-  cursor:pointer;transition:all .2s;white-space:nowrap;
-}
-.nav-tab.active{background:var(--gold);color:#0a0c12;}
-.nav-tab:hover:not(.active){color:var(--text);}
-
-/* ===== SCREENS ===== */
-.screen{display:none;padding-top:64px;min-height:100vh;}
+/* SCREENS */
+.screen{display:none;padding-top:58px;min-height:100vh;}
 .screen.active{display:block;}
 
-/* ===== HOME ===== */
-.home-hero{
-  padding:32px 16px 16px;
-  text-align:center;
-}
-.hero-title{
-  font-size:28px;font-weight:900;
-  line-height:1.3;margin-bottom:8px;
-}
-.hero-title em{
-  font-style:normal;
-  background:linear-gradient(135deg,var(--gold),var(--gold-light));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-}
-.hero-sub{color:var(--text-muted);font-size:14px;line-height:1.7;margin-bottom:24px;}
-
-.stats-row{
-  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
-  margin:0 16px 24px;
-}
-.stat-card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:14px 10px;text-align:center;
-}
+/* HOME */
+.hero{padding:26px 16px 14px;text-align:center;}
+.hero h1{font-size:26px;font-weight:900;line-height:1.3;margin-bottom:8px;}
+.hero h1 em{font-style:normal;color:var(--gold);}
+.hero p{color:var(--text-muted);font-size:13px;line-height:1.7;margin-bottom:20px;}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 16px 20px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 8px;text-align:center;}
 .stat-val{font-size:22px;font-weight:900;color:var(--gold);}
 .stat-lbl{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.sec-title{padding:0 16px 10px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;}
+.modes-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px 16px;}
+.mode-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 14px;cursor:pointer;transition:border-color .2s;}
+.mode-card:active{border-color:var(--gold);}
+.mi{font-size:24px;margin-bottom:8px;}
+.mn{font-size:14px;font-weight:700;margin-bottom:4px;}
+.md{font-size:12px;color:var(--text-muted);line-height:1.5;}
 
-.section-title{
-  padding:0 16px 10px;
-  font-size:13px;font-weight:700;color:var(--text-muted);
-  text-transform:uppercase;letter-spacing:1px;
-}
-
-.modes-grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:10px;
-  padding:0 16px 16px;
-}
-.mode-card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:16px 14px;
-  cursor:pointer;transition:all .25s;position:relative;overflow:hidden;
-}
-.mode-card::after{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(135deg,var(--gold-dim),transparent);
-  opacity:0;transition:opacity .25s;
-}
-.mode-card:hover::after,.mode-card:active::after{opacity:1;}
-.mode-card:hover{border-color:var(--gold);transform:translateY(-2px);}
-.mode-icon{font-size:26px;margin-bottom:8px;}
-.mode-name{font-size:14px;font-weight:700;margin-bottom:4px;}
-.mode-desc{font-size:12px;color:var(--text-muted);line-height:1.5;}
-
-/* ===== LIBRARY ===== */
-.lib-header{padding:16px;}
-.search-box{
-  display:flex;align-items:center;gap:10px;
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:10px;padding:10px 14px;margin-bottom:16px;
-}
-.search-box input{
-  flex:1;background:none;border:none;outline:none;
-  font-family:var(--font-ui);font-size:14px;color:var(--text);
-  direction:rtl;
-}
+/* LIBRARY */
+.lh{padding:14px 16px 0;}
+.search-box{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;}
+.search-box input{flex:1;background:none;border:none;outline:none;font-family:var(--ff);font-size:14px;color:var(--text);direction:rtl;}
 .search-box input::placeholder{color:var(--text-muted);}
+.lib-tabs{display:flex;gap:8px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;}
+.lt{padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--text-muted);font-family:var(--ff);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0;}
+.lt.active{background:var(--gold);color:#0a0c12;border-color:var(--gold);}
+.books{padding:0 16px;display:flex;flex-direction:column;gap:10px;}
+.bc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;display:flex;gap:14px;cursor:pointer;transition:border-color .2s;}
+.bc:active{border-color:var(--gold);}
+.bcover{width:48px;height:64px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;}
+.bi{flex:1;}
+.bt{font-size:15px;font-weight:700;margin-bottom:4px;line-height:1.3;}
+.ba{font-size:12px;color:var(--text-muted);margin-bottom:8px;}
+.bm{display:flex;gap:6px;flex-wrap:wrap;}
+.tag{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);}
+.tag.easy{color:var(--green);border-color:var(--green);}
+.tag.med{color:var(--gold);border-color:var(--gold);}
+.tag.hard{color:var(--red);border-color:var(--red);}
+.add-btn{margin:14px 16px;padding:14px;background:var(--surface);border:1px dashed var(--border);border-radius:var(--r);color:var(--text-muted);font-family:var(--ff);font-size:14px;font-weight:600;cursor:pointer;width:calc(100% - 32px);display:flex;align-items:center;justify-content:center;gap:8px;transition:all .2s;}
+.add-btn:active{border-color:var(--gold);color:var(--gold);}
 
-.lib-tabs{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:2px;}
-.lib-tab{
-  padding:6px 16px;border-radius:20px;border:1px solid var(--border);
-  background:transparent;color:var(--text-muted);
-  font-family:var(--font-ui);font-size:13px;font-weight:600;
-  cursor:pointer;white-space:nowrap;transition:all .2s;
-}
-.lib-tab.active{background:var(--gold);color:#0a0c12;border-color:var(--gold);}
+/* READER */
+.rw{padding:12px;display:flex;flex-direction:column;gap:11px;}
+.rb-title{font-size:13px;color:var(--text-muted);font-weight:600;}
+.mode-sel{display:flex;gap:4px;background:var(--surface);border-radius:10px;padding:4px;border:1px solid var(--border);overflow-x:auto;}
+.mb{flex:1;padding:7px 4px;border-radius:7px;border:none;background:transparent;color:var(--text-muted);font-family:var(--ff);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.mb.active{background:var(--gold);color:#0a0c12;}
+.cp{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;}
+.cr{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.cr:last-child{margin-bottom:0;}
+.cl{font-size:12px;color:var(--text-muted);font-weight:600;min-width:50px;}
+.sl{flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--surface3);outline:none;}
+.sl::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--gold);cursor:pointer;}
+.cv{font-size:12px;font-weight:700;color:var(--gold);min-width:36px;text-align:center;background:var(--gold-dim);border-radius:6px;padding:2px 5px;}
+.fbs{display:flex;gap:6px;}
+.fb{width:34px;height:34px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.fb.active{background:var(--gold);color:#0a0c12;}
 
-.books-list{padding:0 16px;display:flex;flex-direction:column;gap:10px;}
-.book-card{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:14px;
-  display:flex;gap:14px;align-items:flex-start;
-  cursor:pointer;transition:all .2s;
-}
-.book-card:hover{border-color:var(--gold);}
-.book-cover{
-  width:48px;height:64px;border-radius:6px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  font-size:24px;
-}
-.book-info{flex:1;}
-.book-title{font-size:15px;font-weight:700;margin-bottom:4px;line-height:1.3;}
-.book-author{font-size:12px;color:var(--text-muted);margin-bottom:8px;}
-.book-meta{display:flex;gap:8px;flex-wrap:wrap;}
-.book-tag{
-  padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600;
-  background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);
-}
-.book-tag.diff-easy{color:var(--green);border-color:var(--green);}
-.book-tag.diff-med{color:var(--gold);border-color:var(--gold);}
-.book-tag.diff-hard{color:var(--red);border-color:var(--red);}
+/* READING AREA */
+.ra{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;min-height:196px;position:relative;overflow:hidden;}
+/* RSVP */
+.rsvp-d{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:160px;}
+.rsvp-d.active{display:flex;}
+.prog-line{width:100%;height:3px;background:var(--surface3);border-radius:2px;margin-bottom:22px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));border-radius:2px;width:0%;transition:width .1s;}
+.rw-word{font-family:var(--ff-read);font-size:36px;font-weight:700;color:var(--text);text-align:center;min-width:160px;animation:wf .14s ease;}
+.rsvp-cnt{margin-top:18px;font-size:12px;color:var(--text-dim);display:flex;gap:14px;justify-content:center;}
+@keyframes wf{from{opacity:0;transform:scale(.93)}to{opacity:1;transform:scale(1)}}
+/* HIGHLIGHT */
+.hl-d{display:none;font-family:var(--ff-read);font-size:18px;line-height:2.2;color:var(--text-muted);direction:rtl;max-height:270px;overflow-y:auto;}
+.hl-d.active{display:block;}
+.hw{display:inline;border-radius:4px;padding:0 2px;transition:color .07s,background .07s;}
+.hw.cur{color:#0a0c12;background:var(--gold);}
+.hw.rd{color:var(--text-dim);}
+/* CHUNK */
+.ck-d{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:160px;text-align:center;}
+.ck-d.active{display:flex;}
+.ck-w{font-family:var(--ff-read);font-size:25px;font-weight:700;color:var(--text);line-height:1.6;animation:ci .17s ease;max-width:280px;}
+@keyframes ci{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* PACER */
+.pc-d{display:none;position:relative;font-family:var(--ff-read);font-size:17px;line-height:2.4;direction:rtl;max-height:270px;overflow:hidden;}
+.pc-d.active{display:block;}
+.pc-line{position:absolute;left:0;right:0;height:2.4em;background:linear-gradient(180deg,transparent,rgba(212,168,67,.07),transparent);border-top:2px solid var(--gold);pointer-events:none;transition:top .2s linear;}
+/* PERIPH */
+.pp-d{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:160px;gap:12px;}
+.pp-d.active{display:flex;}
+.pp-row{display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;}
+.pw{font-family:var(--ff-read);font-size:21px;font-weight:700;color:var(--text-muted);transition:all .3s;}
+.pw.c{color:var(--text);font-size:29px;}
+.pw.f{opacity:.2;}
+.pd{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0;}
 
-.add-text-btn{
-  margin:16px;padding:14px;
-  background:var(--surface);border:1px dashed var(--border);
-  border-radius:var(--r);color:var(--text-muted);
-  font-family:var(--font-ui);font-size:14px;font-weight:600;
-  cursor:pointer;width:calc(100% - 32px);
-  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;
-}
-.add-text-btn:hover{border-color:var(--gold);color:var(--gold);}
+/* PLAY */
+.pc-ctrl{display:flex;gap:10px;align-items:center;justify-content:center;}
+.play-btn{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-light));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 20px rgba(212,168,67,.3);}
+.play-btn:active{transform:scale(.95);}
+.sk-btn{width:42px;height:42px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;}
+.sk-btn:active{border-color:var(--gold);}
+.wpm-pill{font-size:13px;font-weight:700;color:var(--gold);background:var(--gold-dim);border-radius:20px;padding:4px 12px;}
 
-/* ===== READER ===== */
-.reader-wrap{
-  padding:16px;display:flex;flex-direction:column;gap:12px;
-}
-.reader-book-title{
-  font-size:13px;color:var(--text-muted);font-weight:600;
-  padding:0 4px;
-}
+/* REST */
+.rest-p{display:none;text-align:center;padding:14px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2);border-radius:var(--r);}
+.rest-p.active{display:block;}
 
-/* Mode Selector */
-.mode-selector{
-  display:flex;gap:6px;background:var(--surface);
-  border-radius:10px;padding:4px;border:1px solid var(--border);
-}
-.mode-btn{
-  flex:1;padding:7px 4px;border-radius:7px;border:none;
-  background:transparent;color:var(--text-muted);
-  font-family:var(--font-ui);font-size:11px;font-weight:700;
-  cursor:pointer;transition:all .2s;text-align:center;
-}
-.mode-btn.active{background:var(--gold);color:#0a0c12;}
+/* QUIZ */
+.qp{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;display:none;}
+.qp.active{display:block;}
+.qq{font-size:15px;font-weight:700;margin-bottom:14px;line-height:1.5;}
+.qopts{display:flex;flex-direction:column;gap:8px;}
+.qo{padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:var(--ff);font-size:14px;font-weight:600;cursor:pointer;text-align:right;}
+.qo.ok{background:rgba(74,222,128,.15);border-color:var(--green);color:var(--green);}
+.qo.no{background:rgba(248,113,113,.15);border-color:var(--red);color:var(--red);}
+.qr{margin-top:12px;padding:12px;border-radius:10px;font-size:14px;font-weight:600;text-align:center;display:none;}
 
-/* Controls */
-.controls-panel{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:14px;
-}
-.ctrl-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
-.ctrl-row:last-child{margin-bottom:0;}
-.ctrl-label{font-size:12px;color:var(--text-muted);font-weight:600;min-width:60px;}
-.ctrl-slider{
-  flex:1;-webkit-appearance:none;appearance:none;
-  height:4px;border-radius:2px;background:var(--surface3);outline:none;
-}
-.ctrl-slider::-webkit-slider-thumb{
-  -webkit-appearance:none;width:18px;height:18px;
-  border-radius:50%;background:var(--gold);cursor:pointer;
-}
-.ctrl-val{
-  font-size:12px;font-weight:700;color:var(--gold);
-  min-width:40px;text-align:center;
-  background:var(--gold-dim);border-radius:6px;padding:2px 6px;
-}
-.font-btns{display:flex;gap:6px;}
-.font-btn{
-  width:32px;height:32px;border-radius:8px;
-  background:var(--surface2);border:1px solid var(--border);
-  color:var(--text);font-family:var(--font-ui);font-size:13px;font-weight:700;
-  cursor:pointer;display:flex;align-items:center;justify-content:center;
-  transition:all .2s;
-}
-.font-btn.active{background:var(--gold);color:#0a0c12;border-color:var(--gold);}
+/* STATS */
+.ss{padding:16px;}
+.big-s{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;text-align:center;margin-bottom:12px;position:relative;overflow:hidden;}
+.big-s::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,var(--gold-dim),transparent);}
+.big-n{font-size:52px;font-weight:900;color:var(--gold);line-height:1;}
+.big-u{font-size:15px;color:var(--text-muted);margin-top:4px;}
+.cw{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;}
+.ct{font-size:12px;font-weight:700;margin-bottom:12px;color:var(--text-muted);}
+.bc-chart{display:flex;gap:8px;align-items:flex-end;height:90px;}
+.bi-c{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.bar-b{width:100%;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--gold-light),var(--gold));min-height:4px;}
+.bar-l{font-size:9px;color:var(--text-muted);}
+.bar-v{font-size:10px;font-weight:700;color:var(--gold);}
+.hl-list{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;}
+.hi{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+.hi:last-child{border-bottom:none;}
+.hi-t{font-size:13px;font-weight:700;margin-bottom:2px;}
+.hi-d{font-size:11px;color:var(--text-muted);}
+.hi-w{font-size:16px;font-weight:900;color:var(--gold);background:var(--gold-dim);border-radius:8px;padding:4px 10px;}
 
-/* Reading Area */
-.reading-area{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:20px;min-height:200px;
-  position:relative;overflow:hidden;
-}
+/* SETTINGS */
+.sg{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden;}
+.sgt{padding:12px 14px;font-size:11px;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:1px;}
+.sr{padding:14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.sr:last-child{border-bottom:none;}
+.sl-lbl{font-size:14px;font-weight:600;}
+.sl-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+.tgl{width:48px;height:26px;border-radius:13px;background:var(--surface3);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;border:none;}
+.tgl.on{background:var(--gold);}
+.tgl::after{content:'';position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;}
+.tgl.on::after{transform:translateX(-22px);}
+.clr-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+.cs{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;}
+.cs.sel{border-color:#fff;transform:scale(1.15);}
+.rst-btn{width:100%;margin:8px 0 24px;padding:14px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:var(--r);color:var(--red);font-family:var(--ff);font-size:14px;font-weight:700;cursor:pointer;}
 
-/* RSVP Mode */
-.rsvp-display{
-  display:none;flex-direction:column;align-items:center;justify-content:center;
-  min-height:180px;
-}
-.rsvp-display.active{display:flex;}
-.rsvp-progress-line{
-  width:100%;height:3px;background:var(--surface3);border-radius:2px;
-  margin-bottom:24px;overflow:hidden;
-}
-.rsvp-progress-fill{
-  height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-light));
-  border-radius:2px;transition:width .1s linear;
-}
-.rsvp-word-wrap{position:relative;text-align:center;}
-.rsvp-word{
-  font-family:var(--font-read);
-  font-size:42px;font-weight:700;
-  color:var(--text);
-  animation:wordFlash .15s ease;
-  display:inline-block;
-  min-width:200px;
-}
-.rsvp-word .orp{color:var(--gold);}
-.rsvp-counter{
-  margin-top:20px;font-size:12px;color:var(--text-dim);
-  display:flex;gap:16px;justify-content:center;
-}
-@keyframes wordFlash{
-  0%{opacity:0;transform:scale(0.95);}
-  100%{opacity:1;transform:scale(1);}
-}
+/* MODAL */
+.mo{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.8);display:none;align-items:flex-end;}
+.mo.open{display:flex;}
+.ms{width:100%;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 16px;max-height:85vh;display:flex;flex-direction:column;gap:12px;}
+.mh{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 6px;}
+.mi-txt{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-family:var(--ff);font-size:14px;color:var(--text);outline:none;direction:rtl;}
+.mi-txt:focus{border-color:var(--gold);}
+.mta{flex:1;min-height:140px;resize:none;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;font-family:var(--ff-read);font-size:16px;color:var(--text);outline:none;direction:rtl;line-height:1.8;}
+.mta:focus{border-color:var(--gold);}
+.mi-txt::placeholder,.mta::placeholder{color:var(--text-muted);}
+.mf{display:flex;gap:10px;}
+.btn{flex:1;padding:13px;border-radius:10px;border:none;font-family:var(--ff);font-size:14px;font-weight:700;cursor:pointer;}
+.btn-p{background:var(--gold);color:#0a0c12;}
+.btn-s{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
 
-/* Highlight Mode */
-.highlight-display{
-  display:none;font-family:var(--font-read);
-  font-size:20px;line-height:2.2;
-  color:var(--text-muted);direction:rtl;
-  max-height:300px;overflow-y:auto;
-}
-.highlight-display.active{display:block;}
-.highlight-display .h-word{
-  display:inline;transition:color .1s,background .1s;
-  border-radius:4px;padding:0 3px;
-}
-.highlight-display .h-word.current{
-  color:#0a0c12;
-  background:var(--gold);
-  border-radius:4px;
-}
-.highlight-display .h-word.read{color:var(--text-dim);}
-
-/* Chunk Mode */
-.chunk-display{
-  display:none;flex-direction:column;align-items:center;justify-content:center;
-  min-height:180px;text-align:center;
-}
-.chunk-display.active{display:flex;}
-.chunk-text{
-  font-family:var(--font-read);font-size:28px;font-weight:700;
-  color:var(--text);line-height:1.6;
-  animation:chunkIn .2s ease;
-  max-width:280px;
-}
-@keyframes chunkIn{
-  0%{opacity:0;transform:translateY(8px);}
-  100%{opacity:1;transform:translateY(0);}
-}
-
-/* Pacer Mode */
-.pacer-display{
-  display:none;position:relative;font-family:var(--font-read);
-  font-size:18px;line-height:2.4;direction:rtl;
-  max-height:280px;overflow:hidden;
-}
-.pacer-display.active{display:block;}
-.pacer-line{
-  position:absolute;left:0;right:0;height:2.4em;
-  background:linear-gradient(180deg,transparent,rgba(212,168,67,0.08),transparent);
-  border-top:2px solid var(--gold);
-  pointer-events:none;transition:top .15s linear;
-  border-radius:2px;
-}
-
-/* Peripheral Mode */
-.periph-display{
-  display:none;flex-direction:column;align-items:center;justify-content:center;
-  min-height:180px;gap:12px;
-}
-.periph-display.active{display:flex;}
-.periph-row{display:flex;gap:20px;align-items:center;justify-content:center;}
-.periph-word{
-  font-family:var(--font-read);font-size:24px;font-weight:700;
-  color:var(--text-muted);
-  transition:all .3s;
-}
-.periph-word.center{color:var(--text);font-size:32px;}
-.periph-word.fade{opacity:0.2;}
-.periph-dot{
-  width:8px;height:8px;border-radius:50%;
-  background:var(--gold);flex-shrink:0;
-}
-
-/* Play Controls */
-.play-controls{
-  display:flex;gap:10px;align-items:center;justify-content:center;
-}
-.play-btn{
-  width:56px;height:56px;border-radius:50%;
-  background:linear-gradient(135deg,var(--gold),var(--gold-light));
-  border:none;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;
-  font-size:22px;transition:all .2s;
-  box-shadow:0 4px 20px rgba(212,168,67,0.3);
-}
-.play-btn:hover{transform:scale(1.05);box-shadow:0 6px 28px rgba(212,168,67,0.4);}
-.play-btn:active{transform:scale(0.97);}
-.ctrl-btn{
-  width:42px;height:42px;border-radius:50%;
-  background:var(--surface);border:1px solid var(--border);
-  color:var(--text-muted);cursor:pointer;
-  display:flex;align-items:center;justify-content:center;font-size:16px;
-  transition:all .2s;
-}
-.ctrl-btn:hover{border-color:var(--gold);color:var(--gold);}
-.wpm-display{
-  font-size:13px;font-weight:700;color:var(--gold);
-  background:var(--gold-dim);border-radius:20px;padding:4px 12px;
-}
-
-/* Text Input Modal */
-.modal-overlay{
-  position:fixed;inset:0;z-index:500;
-  background:rgba(0,0,0,0.8);backdrop-filter:blur(8px);
-  display:none;align-items:flex-end;
-}
-.modal-overlay.open{display:flex;}
-.modal-sheet{
-  width:100%;background:var(--surface);
-  border-radius:20px 20px 0 0;padding:20px 16px;
-  max-height:85vh;display:flex;flex-direction:column;gap:12px;
-}
-.modal-handle{
-  width:40px;height:4px;background:var(--border);
-  border-radius:2px;margin:0 auto 8px;
-}
-.modal-title{font-size:17px;font-weight:700;margin-bottom:4px;}
-.modal-textarea{
-  flex:1;min-height:160px;
-  background:var(--surface2);border:1px solid var(--border);
-  border-radius:10px;padding:12px;
-  font-family:var(--font-read);font-size:16px;color:var(--text);
-  resize:none;outline:none;direction:rtl;line-height:1.8;
-}
-.modal-textarea::placeholder{color:var(--text-muted);}
-.modal-textarea:focus{border-color:var(--gold);}
-.modal-footer{display:flex;gap:10px;}
-.btn{
-  flex:1;padding:13px;border-radius:10px;border:none;
-  font-family:var(--font-ui);font-size:14px;font-weight:700;
-  cursor:pointer;transition:all .2s;
-}
-.btn-primary{background:var(--gold);color:#0a0c12;}
-.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
-
-/* Comprehension Quiz */
-.quiz-panel{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:16px;display:none;
-}
-.quiz-panel.active{display:block;}
-.quiz-q{font-size:15px;font-weight:700;margin-bottom:14px;line-height:1.5;}
-.quiz-options{display:flex;flex-direction:column;gap:8px;}
-.quiz-opt{
-  padding:12px 14px;border-radius:10px;border:1px solid var(--border);
-  background:var(--surface2);color:var(--text);
-  font-family:var(--font-ui);font-size:14px;font-weight:600;
-  cursor:pointer;text-align:right;transition:all .2s;
-}
-.quiz-opt:hover{border-color:var(--gold);}
-.quiz-opt.correct{background:rgba(74,222,128,0.15);border-color:var(--green);color:var(--green);}
-.quiz-opt.wrong{background:rgba(248,113,113,0.15);border-color:var(--red);color:var(--red);}
-.quiz-result{
-  margin-top:12px;padding:12px;border-radius:10px;
-  font-size:14px;font-weight:600;text-align:center;display:none;
-}
-
-/* ===== STATS ===== */
-.stats-screen{padding:16px;}
-.stats-header{
-  font-size:22px;font-weight:900;margin-bottom:4px;
-}
-.stats-sub{font-size:13px;color:var(--text-muted);margin-bottom:20px;}
-
-.big-stat{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:20px;text-align:center;margin-bottom:12px;
-  position:relative;overflow:hidden;
-}
-.big-stat::before{
-  content:'';position:absolute;top:-30px;right:-30px;
-  width:100px;height:100px;border-radius:50%;
-  background:radial-gradient(circle,var(--gold-dim),transparent);
-}
-.big-num{
-  font-size:52px;font-weight:900;
-  background:linear-gradient(135deg,var(--gold),var(--gold-light));
-  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
-  line-height:1;
-}
-.big-unit{font-size:16px;color:var(--text-muted);margin-top:4px;}
-
-.chart-wrap{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);padding:16px;margin-bottom:12px;
-}
-.chart-title{font-size:14px;font-weight:700;margin-bottom:14px;color:var(--text-muted);}
-.bar-chart{display:flex;gap:8px;align-items:flex-end;height:100px;}
-.bar-item{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;
-}
-.bar{
-  width:100%;border-radius:6px 6px 0 0;
-  background:linear-gradient(180deg,var(--gold-light),var(--gold));
-  min-height:4px;transition:height .5s ease;
-}
-.bar-lbl{font-size:10px;color:var(--text-muted);}
-.bar-val{font-size:10px;font-weight:700;color:var(--gold);}
-
-.history-list{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);overflow:hidden;
-}
-.history-item{
-  padding:12px 14px;border-bottom:1px solid var(--border);
-  display:flex;justify-content:space-between;align-items:center;
-}
-.history-item:last-child{border-bottom:none;}
-.hist-info{font-size:13px;}
-.hist-title{font-weight:700;margin-bottom:2px;}
-.hist-date{font-size:11px;color:var(--text-muted);}
-.hist-wpm{
-  font-size:16px;font-weight:900;color:var(--gold);
-  background:var(--gold-dim);border-radius:8px;padding:4px 10px;
-}
-
-/* ===== SETTINGS ===== */
-.settings-screen{padding:16px;}
-.settings-group{
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:var(--r);margin-bottom:12px;overflow:hidden;
-}
-.settings-group-title{
-  padding:12px 14px;font-size:12px;font-weight:700;
-  color:var(--text-muted);border-bottom:1px solid var(--border);
-  text-transform:uppercase;letter-spacing:1px;
-}
-.settings-row{
-  padding:14px;display:flex;align-items:center;justify-content:space-between;
-  border-bottom:1px solid var(--border);
-}
-.settings-row:last-child{border-bottom:none;}
-.settings-label{font-size:14px;font-weight:600;}
-.settings-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
-.toggle{
-  width:48px;height:26px;border-radius:13px;
-  background:var(--surface3);position:relative;
-  cursor:pointer;transition:background .2s;flex-shrink:0;border:none;
-}
-.toggle.on{background:var(--gold);}
-.toggle::after{
-  content:'';position:absolute;top:3px;right:3px;
-  width:20px;height:20px;border-radius:50%;background:white;
-  transition:transform .2s;
-}
-.toggle.on::after{transform:translateX(-22px);}
-
-.color-row{display:flex;gap:8px;flex-wrap:wrap;}
-.color-swatch{
-  width:28px;height:28px;border-radius:50%;cursor:pointer;
-  border:2px solid transparent;transition:all .2s;
-}
-.color-swatch.selected{border-color:white;transform:scale(1.15);}
-
-.reset-btn{
-  width:100%;margin:8px 0 24px;padding:14px;
-  background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);
-  border-radius:var(--r);color:var(--red);
-  font-family:var(--font-ui);font-size:14px;font-weight:700;
-  cursor:pointer;transition:all .2s;
-}
-.reset-btn:hover{background:rgba(248,113,113,0.2);}
-
-/* ===== TOAST ===== */
-.toast{
-  position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
-  background:var(--surface2);border:1px solid var(--border);
-  border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;
-  z-index:999;opacity:0;transition:all .3s;white-space:nowrap;
-}
+/* TOAST */
+.toast{position:fixed;bottom:74px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:all .25s;white-space:nowrap;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 
-/* ===== BOTTOM NAV ===== */
-.bottom-nav{
-  position:fixed;bottom:0;left:0;right:0;z-index:200;
-  background:rgba(10,12,18,0.95);
-  backdrop-filter:blur(20px);
-  border-top:1px solid var(--border);
-  display:flex;
-  padding:8px 0 env(safe-area-inset-bottom,8px);
-}
-.bn-item{
-  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:4px 0;cursor:pointer;transition:all .2s;border:none;background:none;
-}
-.bn-icon{font-size:22px;transition:transform .2s;}
-.bn-label{font-size:10px;font-weight:600;color:var(--text-muted);}
-.bn-item.active .bn-label{color:var(--gold);}
-.bn-item.active .bn-icon{transform:translateY(-2px);}
-
-/* ===== UTILS ===== */
-.pb-nav{padding-bottom:70px;}
-
-/* Reader inside bottom padded */
-.reader-wrap.pb-nav,.stats-screen.pb-nav,.settings-screen.pb-nav{padding-bottom:80px;}
-
-/* Scrollbar */
-::-webkit-scrollbar{width:4px;}
-::-webkit-scrollbar-track{background:transparent;}
+/* BOTTOM NAV */
+.bnav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(10,12,18,.97);border-top:1px solid var(--border);display:flex;padding:6px 0 env(safe-area-inset-bottom,6px);}
+.bn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 0;cursor:pointer;border:none;background:none;}
+.bn-i{font-size:21px;}
+.bn-l{font-size:10px;font-weight:600;color:var(--text-muted);}
+.bn.active .bn-l{color:var(--gold);}
+.bn.active .bn-i{transform:translateY(-2px);}
+.pb{padding-bottom:72px;}
+::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 </style>
 </head>
 <body>
 
-<!-- SCREENS -->
 <!-- HOME -->
-<div class="screen active" id="screen-home">
-  <div class="home-hero">
-    <div class="hero-title">طوّر <em>قراءتك</em><br>بتقنيات علمية</div>
-    <div class="hero-sub">مدرب القراءة السريعة الأول بالعربية<br>RSVP · تمييز · مجموعات · محيطية</div>
+<div class="screen active" id="s-home">
+  <div class="hero">
+    <h1>طوّر <em>قراءتك</em><br>بتقنيات علمية</h1>
+    <p>مدرب القراءة السريعة العربية<br>يعمل بالكامل بدون إنترنت ✓</p>
   </div>
-
   <div class="stats-row">
-    <div class="stat-card">
-      <div class="stat-val" id="home-wpm">—</div>
-      <div class="stat-lbl">كلمة/دقيقة</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-val" id="home-sessions">0</div>
-      <div class="stat-lbl">جلسات</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-val" id="home-comp">—</div>
-      <div class="stat-lbl">فهم %</div>
-    </div>
+    <div class="stat-card"><div class="stat-val" id="h-wpm">—</div><div class="stat-lbl">كلمة/دقيقة</div></div>
+    <div class="stat-card"><div class="stat-val" id="h-sess">0</div><div class="stat-lbl">جلسات</div></div>
+    <div class="stat-card"><div class="stat-val" id="h-comp">—</div><div class="stat-lbl">فهم %</div></div>
   </div>
-
-  <div class="section-title">اختر أسلوب التدريب</div>
+  <div class="sec-title">اختر أسلوب التدريب</div>
   <div class="modes-grid">
-    <div class="mode-card" onclick="goMode('rsvp')">
-      <div class="mode-icon">⚡</div>
-      <div class="mode-name">RSVP</div>
-      <div class="mode-desc">كلمة واحدة في نقطة مركزية ثابتة</div>
-    </div>
-    <div class="mode-card" onclick="goMode('highlight')">
-      <div class="mode-icon">🎯</div>
-      <div class="mode-name">تمييز</div>
-      <div class="mode-desc">تسليط الضوء على الكلمات بالتسلسل</div>
-    </div>
-    <div class="mode-card" onclick="goMode('chunk')">
-      <div class="mode-icon">📦</div>
-      <div class="mode-name">مجموعات</div>
-      <div class="mode-desc">قراءة كتل من الكلمات دفعة واحدة</div>
-    </div>
-    <div class="mode-card" onclick="goMode('pacer')">
-      <div class="mode-icon">📏</div>
-      <div class="mode-name">مؤشر</div>
-      <div class="mode-desc">خط مرشد يتحرك عبر النص</div>
-    </div>
-    <div class="mode-card" onclick="goMode('periph')">
-      <div class="mode-icon">👁️</div>
-      <div class="mode-name">محيطية</div>
-      <div class="mode-desc">توسيع مجال الرؤية البصرية</div>
-    </div>
-    <div class="mode-card" onclick="goMode('subvoc')">
-      <div class="mode-icon">🤫</div>
-      <div class="mode-name">تقليل همهمة</div>
-      <div class="mode-desc">تمارين تجاوز النطق الصامت</div>
-    </div>
+    <div class="mode-card" onclick="goMode('rsvp')"><div class="mi">⚡</div><div class="mn">RSVP</div><div class="md">كلمة واحدة في نقطة مركزية ثابتة</div></div>
+    <div class="mode-card" onclick="goMode('highlight')"><div class="mi">🎯</div><div class="mn">تمييز</div><div class="md">تسليط الضوء على الكلمات بالتسلسل</div></div>
+    <div class="mode-card" onclick="goMode('chunk')"><div class="mi">📦</div><div class="mn">مجموعات</div><div class="md">قراءة كتل من الكلمات دفعة واحدة</div></div>
+    <div class="mode-card" onclick="goMode('pacer')"><div class="mi">📏</div><div class="mn">مؤشر</div><div class="md">خط مرشد يتحرك عبر النص</div></div>
+    <div class="mode-card" onclick="goMode('periph')"><div class="mi">👁️</div><div class="mn">محيطية</div><div class="md">توسيع مجال الرؤية البصرية</div></div>
+    <div class="mode-card" onclick="goMode('subvoc')"><div class="mi">🤫</div><div class="mn">تقليل همهمة</div><div class="md">تجاوز النطق الصامت الداخلي</div></div>
   </div>
-  <div class="pb-nav"></div>
+  <div class="pb"></div>
 </div>
 
 <!-- LIBRARY -->
-<div class="screen" id="screen-library">
-  <div class="lib-header">
-    <div class="search-box">
-      <span>🔍</span>
-      <input type="text" placeholder="ابحث في المكتبة..." id="lib-search" oninput="filterBooks()">
-    </div>
+<div class="screen" id="s-library">
+  <div class="lh">
+    <div class="search-box"><span>🔍</span><input type="text" placeholder="ابحث..." id="lib-search" oninput="filterBooks()"></div>
     <div class="lib-tabs">
-      <button class="lib-tab active" onclick="filterCat('all',this)">الكل</button>
-      <button class="lib-tab" onclick="filterCat('story',this)">قصص</button>
-      <button class="lib-tab" onclick="filterCat('article',this)">مقالات</button>
-      <button class="lib-tab" onclick="filterCat('hadith',this)">أحاديث</button>
-      <button class="lib-tab" onclick="filterCat('custom',this)">نصوصي</button>
+      <button class="lt active" onclick="filterCat('all',this)">الكل</button>
+      <button class="lt" onclick="filterCat('story',this)">قصص</button>
+      <button class="lt" onclick="filterCat('article',this)">مقالات</button>
+      <button class="lt" onclick="filterCat('hadith',this)">أحاديث</button>
+      <button class="lt" onclick="filterCat('custom',this)">نصوصي</button>
     </div>
   </div>
-  <div class="books-list" id="books-list"></div>
-  <button class="add-text-btn" onclick="openAddText()">＋ أضف نصك الخاص</button>
-  <div class="pb-nav"></div>
+  <div class="books" id="books-list"></div>
+  <button class="add-btn" onclick="openAddText()">＋ أضف نصك الخاص</button>
+  <div class="pb"></div>
 </div>
 
 <!-- READER -->
-<div class="screen pb-nav" id="screen-reader">
-  <div class="reader-wrap">
-    <div class="reader-book-title" id="reader-book-title">اختر نصاً من المكتبة</div>
-
-    <!-- Mode Selector -->
-    <div class="mode-selector">
-      <button class="mode-btn active" onclick="switchReaderMode('rsvp',this)">RSVP</button>
-      <button class="mode-btn" onclick="switchReaderMode('highlight',this)">تمييز</button>
-      <button class="mode-btn" onclick="switchReaderMode('chunk',this)">مجموعات</button>
-      <button class="mode-btn" onclick="switchReaderMode('pacer',this)">مؤشر</button>
-      <button class="mode-btn" onclick="switchReaderMode('periph',this)">محيطية</button>
+<div class="screen pb" id="s-reader">
+  <div class="rw">
+    <div class="rb-title" id="r-title">اختر نصاً من المكتبة</div>
+    <div class="mode-sel">
+      <button class="mb active" onclick="switchRM('rsvp',this)">RSVP</button>
+      <button class="mb" onclick="switchRM('highlight',this)">تمييز</button>
+      <button class="mb" onclick="switchRM('chunk',this)">مجموعات</button>
+      <button class="mb" onclick="switchRM('pacer',this)">مؤشر</button>
+      <button class="mb" onclick="switchRM('periph',this)">محيطية</button>
     </div>
-
-    <!-- Controls -->
-    <div class="controls-panel">
-      <div class="ctrl-row">
-        <span class="ctrl-label">السرعة</span>
-        <input type="range" class="ctrl-slider" id="wpm-slider" min="100" max="800" step="25" value="250" oninput="updateWPM(this.value)">
-        <span class="ctrl-val" id="wpm-val">250</span>
+    <div class="cp">
+      <div class="cr">
+        <span class="cl">السرعة</span>
+        <input type="range" class="sl" id="sl-wpm" min="100" max="800" step="25" value="250" oninput="setWPM(this.value)">
+        <span class="cv" id="cv-wpm">250</span>
       </div>
-      <div class="ctrl-row">
-        <span class="ctrl-label">الخط</span>
-        <div class="font-btns">
-          <button class="font-btn active" onclick="setFont('amiri',this)" style="font-family:'Amiri'">أ</button>
-          <button class="font-btn" onclick="setFont('cairo',this)" style="font-family:'Cairo'">أ</button>
+      <div class="cr">
+        <span class="cl">الخط</span>
+        <div class="fbs">
+          <button class="fb active" onclick="setFont('serif',this)">ع</button>
+          <button class="fb" onclick="setFont('sans',this)" style="font-family:sans-serif">ع</button>
         </div>
-        <span class="ctrl-label" style="min-width:30px">الحجم</span>
-        <input type="range" class="ctrl-slider" id="size-slider" min="16" max="52" step="2" value="32" oninput="updateFontSize(this.value)">
-        <span class="ctrl-val" id="size-val">32</span>
+        <span class="cl" style="min-width:28px;text-align:center">حجم</span>
+        <input type="range" class="sl" id="sl-sz" min="18" max="52" step="2" value="32" oninput="setSize(this.value)">
+        <span class="cv" id="cv-sz">32</span>
       </div>
-      <div class="ctrl-row">
-        <span class="ctrl-label">مجموعة</span>
-        <input type="range" class="ctrl-slider" id="chunk-slider" min="1" max="5" step="1" value="1" oninput="updateChunk(this.value)">
-        <span class="ctrl-val" id="chunk-val">1</span>
+      <div class="cr">
+        <span class="cl">مجموعة</span>
+        <input type="range" class="sl" id="sl-ck" min="1" max="5" step="1" value="1" oninput="setChunk(this.value)">
+        <span class="cv" id="cv-ck">1</span>
       </div>
     </div>
 
-    <!-- Reading Area -->
-    <div class="reading-area" id="reading-area">
-      <!-- RSVP -->
-      <div class="rsvp-display active" id="rsvp-display">
-        <div class="rsvp-progress-line">
-          <div class="rsvp-progress-fill" id="rsvp-progress" style="width:0%"></div>
-        </div>
-        <div class="rsvp-word-wrap">
-          <div class="rsvp-word" id="rsvp-word">اضغط تشغيل</div>
-        </div>
-        <div class="rsvp-counter">
-          <span id="rsvp-cur">0</span> / <span id="rsvp-total">0</span> كلمة
-        </div>
+    <div class="ra">
+      <div class="rsvp-d active" id="d-rsvp">
+        <div class="prog-line"><div class="prog-fill" id="prog"></div></div>
+        <div style="text-align:center"><div class="rw-word" id="rsvp-word">اضغط تشغيل</div></div>
+        <div class="rsvp-cnt"><span id="rsvp-cur">0</span> / <span id="rsvp-tot">0</span> كلمة</div>
       </div>
-      <!-- Highlight -->
-      <div class="highlight-display" id="highlight-display"></div>
-      <!-- Chunk -->
-      <div class="chunk-display" id="chunk-display">
-        <div class="chunk-text" id="chunk-word">اضغط تشغيل</div>
+      <div class="hl-d" id="d-hl"></div>
+      <div class="ck-d" id="d-ck"><div class="ck-w" id="ck-word">اضغط تشغيل</div></div>
+      <div class="pc-d" id="d-pc">
+        <div class="pc-line" id="pc-line" style="top:0"></div>
+        <div id="pc-text"></div>
       </div>
-      <!-- Pacer -->
-      <div class="pacer-display" id="pacer-display">
-        <div class="pacer-line" id="pacer-line" style="top:0"></div>
-        <div id="pacer-text" style="font-family:'Amiri';font-size:18px;line-height:2.4;direction:rtl;"></div>
-      </div>
-      <!-- Peripheral -->
-      <div class="periph-display" id="periph-display">
-        <div class="periph-row" id="periph-row">
-          <span class="periph-word fade" id="pw-r2"></span>
-          <span class="periph-word" id="pw-r1"></span>
-          <span class="periph-dot"></span>
-          <span class="periph-word center" id="pw-c"></span>
-          <span class="periph-dot"></span>
-          <span class="periph-word" id="pw-l1"></span>
-          <span class="periph-word fade" id="pw-l2"></span>
+      <div class="pp-d" id="d-pp">
+        <div class="pp-row">
+          <span class="pw f" id="pw-r2"></span><span class="pw" id="pw-r1"></span>
+          <span class="pd"></span><span class="pw c" id="pw-c">·</span><span class="pd"></span>
+          <span class="pw" id="pw-l1"></span><span class="pw f" id="pw-l2"></span>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">ركّز على النقطة الذهبية</div>
+        <div style="font-size:12px;color:var(--text-muted)">ركّز على النقطة الذهبية</div>
       </div>
     </div>
 
-    <!-- Play Controls -->
-    <div class="play-controls">
-      <button class="ctrl-btn" onclick="skipBack()" title="تراجع">⏮</button>
+    <div class="pc-ctrl">
+      <button class="sk-btn" onclick="skip(-20)">⏮</button>
       <button class="play-btn" id="play-btn" onclick="togglePlay()">▶</button>
-      <button class="ctrl-btn" onclick="skipForward()" title="تقدم">⏭</button>
-      <div class="wpm-display" id="live-wpm">250 كلمة/د</div>
+      <button class="sk-btn" onclick="skip(20)">⏭</button>
+      <div class="wpm-pill" id="wpm-pill">250 كلمة/د</div>
     </div>
 
-    <!-- Rest Timer -->
-    <div id="rest-timer" style="display:none;text-align:center;padding:10px;">
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px;">⏱ استرح عينيك</div>
-      <div style="font-size:24px;font-weight:900;color:var(--cyan)" id="rest-count">20</div>
-      <div style="font-size:11px;color:var(--text-muted)">انظر لشيء على بُعد 6 أمتار</div>
+    <div class="rest-p" id="rest-p">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:6px">⏱ استرح عينيك — انظر بعيداً</div>
+      <div style="font-size:28px;font-weight:900;color:var(--cyan)" id="rest-cnt">20</div>
     </div>
 
-    <!-- Quiz -->
-    <div class="quiz-panel" id="quiz-panel">
-      <div class="quiz-q" id="quiz-q"></div>
-      <div class="quiz-options" id="quiz-opts"></div>
-      <div class="quiz-result" id="quiz-result"></div>
+    <div class="qp" id="qp">
+      <div class="qq" id="qq"></div>
+      <div class="qopts" id="qopts"></div>
+      <div class="qr" id="qr"></div>
+      <button class="btn btn-p" style="margin-top:12px;display:none" id="next-btn" onclick="closeQuiz()">متابعة ▶</button>
     </div>
   </div>
 </div>
 
 <!-- STATS -->
-<div class="screen" id="screen-stats">
-  <div class="stats-screen pb-nav">
-    <div class="stats-header">إحصائياتك</div>
-    <div class="stats-sub">تتبع تطورك في القراءة السريعة</div>
-
-    <div class="big-stat">
-      <div class="big-num" id="stat-avg-wpm">—</div>
-      <div class="big-unit">متوسط كلمة/دقيقة</div>
-    </div>
-
+<div class="screen" id="s-stats">
+  <div class="ss pb">
+    <div style="font-size:22px;font-weight:900;margin-bottom:4px">إحصائياتك</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:18px">تتبع تطورك في القراءة السريعة</div>
+    <div class="big-s"><div class="big-n" id="st-avg">—</div><div class="big-u">متوسط كلمة/دقيقة</div></div>
     <div class="stats-row" style="margin:0 0 12px">
-      <div class="stat-card">
-        <div class="stat-val" id="stat-best">—</div>
-        <div class="stat-lbl">أفضل سرعة</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" id="stat-total-words">0</div>
-        <div class="stat-lbl">كلمات قُرئت</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-val" id="stat-avg-comp">—</div>
-        <div class="stat-lbl">فهم %</div>
-      </div>
+      <div class="stat-card"><div class="stat-val" id="st-best">—</div><div class="stat-lbl">أفضل سرعة</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-words">0</div><div class="stat-lbl">كلمات قُرئت</div></div>
+      <div class="stat-card"><div class="stat-val" id="st-comp">—</div><div class="stat-lbl">فهم %</div></div>
     </div>
-
-    <div class="chart-wrap">
-      <div class="chart-title">سرعة آخر 7 جلسات (كلمة/دقيقة)</div>
-      <div class="bar-chart" id="wpm-chart"></div>
-    </div>
-
-    <div class="section-title" style="padding:0 0 10px">آخر الجلسات</div>
-    <div class="history-list" id="history-list">
-      <div class="history-item" style="justify-content:center;color:var(--text-muted);font-size:13px;">لا توجد جلسات بعد</div>
-    </div>
+    <div class="cw"><div class="ct">سرعة آخر 7 جلسات (كلمة/دقيقة)</div><div class="bc-chart" id="chart"></div></div>
+    <div class="sec-title" style="padding:0 0 10px">آخر الجلسات</div>
+    <div class="hl-list" id="hist-list"><div class="hi" style="justify-content:center;color:var(--text-muted);font-size:13px">لا توجد جلسات بعد</div></div>
   </div>
 </div>
 
 <!-- SETTINGS -->
-<div class="screen" id="screen-settings">
-  <div class="settings-screen pb-nav">
-    <div class="section-title" style="padding:16px 0 10px;font-size:16px;color:var(--text);">الإعدادات</div>
-
-    <div class="settings-group">
-      <div class="settings-group-title">القراءة</div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">لون التمييز</div>
-          <div style="margin-top:8px;" class="color-row" id="color-row"></div>
-        </div>
-      </div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">السرعة الافتراضية</div>
-          <div class="settings-sub" id="default-wpm-label">250 كلمة/دقيقة</div>
-        </div>
-        <input type="range" class="ctrl-slider" style="width:120px" min="100" max="600" step="25" value="250" oninput="setDefaultWPM(this.value)">
-      </div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">مجموعة الكلمات</div>
-          <div class="settings-sub" id="default-chunk-label">1 كلمة</div>
-        </div>
-        <input type="range" class="ctrl-slider" style="width:120px" min="1" max="5" step="1" value="1" oninput="setDefaultChunk(this.value)">
+<div class="screen" id="s-settings">
+  <div style="padding:16px" class="pb">
+    <div style="font-size:18px;font-weight:900;padding:8px 0 16px">الإعدادات</div>
+    <div class="sg">
+      <div class="sgt">التخصيص</div>
+      <div class="sr"><div><div class="sl-lbl">لون التمييز</div><div class="clr-row" id="clr-row"></div></div></div>
+      <div class="sr">
+        <div><div class="sl-lbl">السرعة الافتراضية</div><div class="sl-sub" id="def-wpm-lbl">250 كلمة/دقيقة</div></div>
+        <input type="range" class="sl" style="width:110px" min="100" max="600" step="25" value="250" oninput="setDefWPM(this.value)">
       </div>
     </div>
-
-    <div class="settings-group">
-      <div class="settings-group-title">التذكيرات</div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">قاعدة 20-20-20</div>
-          <div class="settings-sub">استراحة كل 20 دقيقة</div>
-        </div>
-        <button class="toggle on" id="toggle-rest" onclick="toggleSetting('rest',this)"></button>
-      </div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">حفظ مكان التوقف</div>
-          <div class="settings-sub">استئناف من آخر كلمة</div>
-        </div>
-        <button class="toggle on" id="toggle-resume" onclick="toggleSetting('resume',this)"></button>
-      </div>
+    <div class="sg">
+      <div class="sgt">التذكيرات</div>
+      <div class="sr"><div><div class="sl-lbl">قاعدة 20-20-20</div><div class="sl-sub">استراحة كل 20 دقيقة</div></div><button class="tgl on" id="tgl-rest" onclick="toggleS('rest',this)"></button></div>
+      <div class="sr"><div><div class="sl-lbl">حفظ مكان التوقف</div><div class="sl-sub">استئناف من آخر كلمة</div></div><button class="tgl on" id="tgl-resume" onclick="toggleS('resume',this)"></button></div>
     </div>
-
-    <div class="settings-group">
-      <div class="settings-group-title">عن التطبيق</div>
-      <div class="settings-row">
-        <div>
-          <div class="settings-label">الإصدار</div>
-          <div class="settings-sub">قارئ سريع v1.0</div>
-        </div>
-        <span style="color:var(--text-muted);font-size:13px;">1.0.0</span>
-      </div>
+    <div class="sg">
+      <div class="sgt">عن التطبيق</div>
+      <div class="sr"><div><div class="sl-lbl">قارئ سريع</div><div class="sl-sub">ملف واحد — يعمل بدون إنترنت</div></div><span style="color:var(--gold);font-size:13px;font-weight:700">v3.0</span></div>
     </div>
-
-    <button class="reset-btn" onclick="resetAll()">🗑 إعادة تعيين كل الإحصائيات</button>
+    <button class="rst-btn" onclick="resetAll()">🗑 إعادة تعيين كل الإحصائيات</button>
   </div>
 </div>
 
-<!-- MODAL: Add Text -->
-<div class="modal-overlay" id="add-modal">
-  <div class="modal-sheet">
-    <div class="modal-handle"></div>
-    <div class="modal-title">أضف نصك الخاص</div>
-    <input type="text" placeholder="عنوان النص" id="custom-title"
-      style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-family:var(--font-ui);font-size:14px;outline:none;direction:rtl;">
-    <textarea class="modal-textarea" id="custom-text" placeholder="الصق نصك هنا..."></textarea>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeAddText()">إلغاء</button>
-      <button class="btn btn-primary" onclick="saveCustomText()">حفظ</button>
+<!-- MODAL -->
+<div class="mo" id="modal">
+  <div class="ms">
+    <div class="mh"></div>
+    <div style="font-size:17px;font-weight:700">أضف نصك الخاص</div>
+    <input type="text" class="mi-txt" placeholder="عنوان النص (اختياري)" id="m-title">
+    <textarea class="mta" id="m-text" placeholder="الصق نصك العربي هنا..."></textarea>
+    <div class="mf">
+      <button class="btn btn-s" onclick="closeModal()">إلغاء</button>
+      <button class="btn btn-p" onclick="saveText()">حفظ</button>
     </div>
   </div>
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- BOTTOM NAV -->
-<div class="bottom-nav">
-  <button class="bn-item active" onclick="switchScreen('home',this)" id="bn-home">
-    <span class="bn-icon">🏠</span>
-    <span class="bn-label">الرئيسية</span>
-  </button>
-  <button class="bn-item" onclick="switchScreen('library',this)" id="bn-library">
-    <span class="bn-icon">📚</span>
-    <span class="bn-label">المكتبة</span>
-  </button>
-  <button class="bn-item" onclick="switchScreen('reader',this)" id="bn-reader">
-    <span class="bn-icon">▶️</span>
-    <span class="bn-label">القراءة</span>
-  </button>
-  <button class="bn-item" onclick="switchScreen('stats',this)" id="bn-stats">
-    <span class="bn-icon">📊</span>
-    <span class="bn-label">إحصائيات</span>
-  </button>
-  <button class="bn-item" onclick="switchScreen('settings',this)" id="bn-settings">
-    <span class="bn-icon">⚙️</span>
-    <span class="bn-label">الإعدادات</span>
-  </button>
+<div class="bnav">
+  <button class="bn active" onclick="goScreen('home',this)"><span class="bn-i">🏠</span><span class="bn-l">الرئيسية</span></button>
+  <button class="bn" onclick="goScreen('library',this)"><span class="bn-i">📚</span><span class="bn-l">المكتبة</span></button>
+  <button class="bn" onclick="goScreen('reader',this)"><span class="bn-i">▶️</span><span class="bn-l">القراءة</span></button>
+  <button class="bn" onclick="goScreen('stats',this)"><span class="bn-i">📊</span><span class="bn-l">إحصائيات</span></button>
+  <button class="bn" onclick="goScreen('settings',this)"><span class="bn-i">⚙️</span><span class="bn-l">إعدادات</span></button>
 </div>
 
 <script>
-// ============================================================
-// DATA
-// ============================================================
-const BOOKS = [
-  {
-    id:1, cat:'story', icon:'📖', color:'#2d4a3e',
-    title:'الأمير الصغير',author:'أنطوان دو سانت-إكزوبيري',
-    difficulty:'easy',words:420,
-    text:`في يوم من الأيام، حطّت طائرتي في صحراء الصحراء الكبرى. كان محركها قد تعطّل، ولم يكن معي ميكانيكي ولا مسافرون، وكان عليّ أن أحاول إصلاحها وحدي. كانت مسألة حياة أو موت بالنسبة إليّ، إذ لم يكن معي من الماء إلا ما يكفي لأسبوع واحد. ففي الليلة الأولى نمت على الرمال على بعد آلاف الأميال عن أي أرض مأهولة، وكنت أكثر وحدةً بكثير من أي ناجٍ غريق في وسط المحيط. فتصوّروا دهشتي حين استيقظت عند الفجر على صوت غريب صغير يقول: من فضلك... ارسم لي خروفاً! قفزت واقفاً كما لو أنني صُعقت بالبرق. فركت عيني جيداً. ونظرت من حولي. فرأيت ولداً صغيراً غير عادي يحدّق فيّ بجدية بالغة. هنا أصوّر أجمل صورة لأمير صغير رأيته يوماً ما.`,
-    quiz:[{q:'أين كانت الطائرة؟',opts:['في الغابة','في الصحراء الكبرى','في الجبال','في البحر'],a:1},
-          {q:'ما الذي طلبه الأمير الصغير؟',opts:['ماء','طعام','رسم خروف','مساعدة'],a:2}]
-  },
-  {
-    id:2, cat:'article', icon:'🧠', color:'#2d3a4a',
-    title:'علم القراءة السريعة',author:'مجلة العقل والعلم',
-    difficulty:'med',words:380,
-    text:`القراءة السريعة هي مجموعة من الأساليب التي تهدف إلى زيادة سرعة القراءة دون التضحية بمستوى الفهم. تعتمد هذه التقنيات على فهم آليات حركة العين وطريقة معالجة الدماغ للمعلومات البصرية. في المتوسط يقرأ الإنسان البالغ ما بين مئتين وخمسين إلى ثلاثمئة كلمة في الدقيقة، في حين يمكن للقارئ المدرّب الوصول إلى خمسمئة كلمة أو أكثر مع الحفاظ على مستوى فهم جيد. تتضمن أبرز تقنيات القراءة السريعة: تقنية العرض التسلسلي السريع RSVP التي تعرض الكلمات واحدة تلو الأخرى في نقطة مركزية ثابتة مما يقلل من حركة العين، وتقنية القراءة بالكتل التي تدرّب العين على التقاط مجموعات من الكلمات دفعة واحدة. كذلك تعمل تمارين الرؤية المحيطية على توسيع مجال الرؤية الأفقي مما يقلل من عدد توقفات العين على كل سطر. أما التهجئة الداخلية أو ما يعرف بالنطق الصامت فهي أحد أكبر العوائق أمام القراءة السريعة لأن الدماغ يربط الكلمة المرئية بصوتها الداخلي مما يُبطئ معالجة المعلومات.`,
-    quiz:[{q:'ما متوسط سرعة القراءة لدى الإنسان البالغ؟',opts:['100-150 كلمة/دقيقة','250-300 كلمة/دقيقة','500-600 كلمة/دقيقة','1000 كلمة/دقيقة'],a:1},
-          {q:'ما أكبر عائق أمام القراءة السريعة؟',opts:['حركة العين','التهجئة الداخلية','قلة التركيز','صعوبة النص'],a:1}]
-  },
-  {
-    id:3, cat:'hadith', icon:'🌙', color:'#3a2d4a',
-    title:'أحاديث نبوية مختارة',author:'صحيح البخاري ومسلم',
-    difficulty:'easy',words:200,
-    text:`عن أبي هريرة رضي الله عنه قال: قال رسول الله صلى الله عليه وسلم: من سلك طريقاً يلتمس فيه علماً سهّل الله له به طريقاً إلى الجنة. وعن ابن مسعود رضي الله عنه قال: قال رسول الله صلى الله عليه وسلم: لا حسد إلا في اثنتين: رجل آتاه الله مالاً فسلّطه على هلكته في الحق، ورجل آتاه الله الحكمة فهو يقضي بها ويُعلّمها. وعن أبي الدرداء رضي الله عنه قال: سمعت رسول الله صلى الله عليه وسلم يقول: من سلك طريقاً يبتغي فيه علماً سلك الله به طريقاً إلى الجنة، وإن الملائكة لتضع أجنحتها لطالب العلم رضاً بما يصنع، وإن العالم ليستغفر له من في السماوات ومن في الأرض حتى الحيتان في الماء.`,
-    quiz:[{q:'ماذا يُسهّل الله لمن سلك طريق العلم؟',opts:['المال','طريقاً إلى الجنة','الصحة','السلطة'],a:1},
-          {q:'من يستغفر للعالم؟',opts:['المؤمنون فقط','الملائكة فقط','كل من في السماوات والأرض','العلماء'],a:2}]
-  },
-  {
-    id:4, cat:'story', icon:'🏺', color:'#4a3a2d',
-    title:'ألف ليلة وليلة',author:'تراث عربي',
-    difficulty:'hard',words:350,
-    text:`حُكي أن ملكاً من ملوك الزمان كان له ولدان، اسم الأول شهريار واسم الثاني شاه زمان. وكان شهريار الملك الأكبر، ولما كبرا في السن أعطى أبوهما شهريار ملك بلاد الهند والصين وأعطى شاه زمان ملك سمرقند العجم. وكان كل منهما في مملكته ملك عادلاً محباً للخير. مضت السنون وطال الفراق بين الأخوين، فاشتاق شهريار إلى أخيه شاه زمان وأرسل إليه وزيره الأول ليحضره إليه. فلما وصل الوزير إلى سمرقند أخبر شاه زمان بما أرسله إليه أخوه فقال شاه زمان: سمعاً وطاعة. وأمر بتجهيز الأسفار، فجهّزوا خيامهم وأمتعتهم وأجمل الهدايا. ثم خرج الوزير يودّع أخاه بعدما جهّز كل شيء وانتظر النهار ليسافر.`,
-    quiz:[{q:'ما اسم الملك الأكبر؟',opts:['شاه زمان','شهريار','الوزير','أبوهما'],a:1},
-          {q:'ما ملك شاه زمان؟',opts:['الهند والصين','مصر','سمرقند العجم','بغداد'],a:2}]
-  },
-  {
-    id:5, cat:'article', icon:'🔬', color:'#2a3d2a',
-    title:'الدماغ والذاكرة',author:'مجلة ساينس',
-    difficulty:'hard',words:310,
-    text:`يُعدّ الدماغ البشري من أكثر الأجهزة تعقيداً في الكون المعروف، إذ يحتوي على ما يزيد على مئة مليار خلية عصبية تترابط فيما بينها بشبكة من التشابكات تُقدَّر بمئة تريليون وصلة. تنتشر الذكريات في مناطق متعددة من الدماغ وليس في منطقة واحدة كما كان يُعتقد سابقاً، فالذكريات الإجرائية كتعلّم ركوب الدراجة تُختزن في المخيخ والعقد القاعدية، بينما الذكريات العاطفية تعتمد على اللوزة الدماغية، أما الذكريات الواضحة كحفظ الأسماء والوجوه فتعتمد على قنطرة الذاكرة في الحُصين. ويرى علماء الأعصاب أن النوم الجيد أحد أهم عوامل تعزيز الذاكرة وتوطيدها، إذ يقوم الدماغ خلال النوم بمراجعة المعلومات المُكتسبة خلال النهار وترسيخها في الذاكرة طويلة الأمد.`,
-    quiz:[{q:'كم خلية عصبية يحتوي الدماغ؟',opts:['مليار','عشرة مليارات','مئة مليار','مليار مليار'],a:2},
-          {q:'أين تُختزن الذكريات العاطفية؟',opts:['الحُصين','اللوزة الدماغية','المخيخ','القشرة'],a:1}]
-  }
+// ================================================================
+// BOOKS
+// ================================================================
+const BOOKS=[
+  {id:1,cat:'story',icon:'📖',color:'#2d4a3e',title:'الأمير الصغير',author:'أنطوان دو سانت-إكزوبيري',diff:'easy',
+   text:`في يوم من الأيام حطّت طائرتي في صحراء الصحراء الكبرى وكان محركها قد تعطّل ولم يكن معي ميكانيكي ولا مسافرون وكان عليّ أن أحاول إصلاحها وحدي. كانت مسألة حياة أو موت بالنسبة إليّ إذ لم يكن معي من الماء إلا ما يكفي لأسبوع واحد. ففي الليلة الأولى نمت على الرمال على بعد آلاف الأميال عن أي أرض مأهولة وكنت أكثر وحدةً بكثير من أي ناجٍ غريق في وسط المحيط. فتصوّروا دهشتي حين استيقظت عند الفجر على صوت غريب صغير يقول من فضلك ارسم لي خروفاً. قفزت واقفاً كما لو أنني صُعقت بالبرق فركت عيني جيداً ونظرت من حولي فرأيت ولداً صغيراً غير عادي يحدّق فيّ بجدية بالغة. كان شعره ذهبياً وصوته عذباً وعيناه تلمعان كالنجوم في سماء الصحراء الصافية.`,
+   quiz:[{q:'أين حطّت الطائرة؟',opts:['في الغابة','في الصحراء الكبرى','في الجبال','في البحر'],a:1},{q:'ماذا طلب الأمير الصغير؟',opts:['ماء','طعام','رسم خروف','مساعدة'],a:2}]},
+  {id:2,cat:'article',icon:'🧠',color:'#2d3a4a',title:'علم القراءة السريعة',author:'مجلة العقل والعلم',diff:'med',
+   text:`القراءة السريعة هي مجموعة من الأساليب التي تهدف إلى زيادة سرعة القراءة دون التضحية بمستوى الفهم. تعتمد هذه التقنيات على فهم آليات حركة العين وطريقة معالجة الدماغ للمعلومات البصرية. في المتوسط يقرأ الإنسان البالغ ما بين مئتين وخمسين إلى ثلاثمئة كلمة في الدقيقة في حين يمكن للقارئ المدرّب الوصول إلى خمسمئة كلمة أو أكثر مع الحفاظ على مستوى فهم جيد. تتضمن أبرز تقنيات القراءة السريعة تقنية العرض التسلسلي السريع التي تعرض الكلمات واحدة تلو الأخرى في نقطة مركزية ثابتة. كذلك تعمل تمارين الرؤية المحيطية على توسيع مجال الرؤية مما يقلل من عدد توقفات العين. أما التهجئة الداخلية فهي أحد أكبر العوائق أمام القراءة السريعة لأن الدماغ يربط الكلمة المرئية بصوتها الداخلي مما يُبطئ معالجة المعلومات.`,
+   quiz:[{q:'ما متوسط سرعة قراءة البالغ؟',opts:['100 كلمة','250-300 كلمة','500 كلمة','1000 كلمة'],a:1},{q:'ما أكبر عائق للقراءة السريعة؟',opts:['حركة العين','صعوبة النص','التهجئة الداخلية','قلة التركيز'],a:2}]},
+  {id:3,cat:'hadith',icon:'🌙',color:'#3a2d4a',title:'أحاديث في فضل العلم',author:'صحيح البخاري ومسلم',diff:'easy',
+   text:`عن أبي هريرة رضي الله عنه قال قال رسول الله صلى الله عليه وسلم من سلك طريقاً يلتمس فيه علماً سهّل الله له به طريقاً إلى الجنة. وعن ابن مسعود رضي الله عنه قال قال رسول الله صلى الله عليه وسلم لا حسد إلا في اثنتين رجل آتاه الله مالاً فسلّطه على هلكته في الحق ورجل آتاه الله الحكمة فهو يقضي بها ويُعلّمها. وعن أبي الدرداء رضي الله عنه سمعت رسول الله صلى الله عليه وسلم يقول من سلك طريقاً يبتغي فيه علماً سلك الله به طريقاً إلى الجنة وإن الملائكة لتضع أجنحتها لطالب العلم وإن العالم ليستغفر له من في السماوات ومن في الأرض حتى الحيتان في الماء.`,
+   quiz:[{q:'ما الذي يُسهّله الله لطالب العلم؟',opts:['المال','الصحة','طريقاً إلى الجنة','السلطة'],a:2},{q:'من يستغفر للعالم؟',opts:['المؤمنون','الملائكة فقط','كل من في السماوات والأرض','العلماء'],a:2}]},
+  {id:4,cat:'story',icon:'🏺',color:'#4a3a2d',title:'ألف ليلة وليلة',author:'تراث عربي',diff:'hard',
+   text:`حُكي أن ملكاً من ملوك الزمان كان له ولدان اسم الأول شهريار واسم الثاني شاه زمان. وكان شهريار الملك الأكبر ولما كبرا في السن أعطى أبوهما شهريار ملك بلاد الهند والصين وأعطى شاه زمان ملك سمرقند العجم. وكان كل منهما في مملكته ملكاً عادلاً محباً للخير. مضت السنون وطال الفراق بين الأخوين فاشتاق شهريار إلى أخيه شاه زمان وأرسل إليه وزيره الأول ليحضره إليه. فلما وصل الوزير إلى سمرقند أخبر شاه زمان بما أرسله إليه أخوه فقال شاه زمان سمعاً وطاعة وأمر بتجهيز الأسفار فجهّزوا خيامهم وأمتعتهم وأجمل الهدايا.`,
+   quiz:[{q:'ما اسم الملك الأكبر؟',opts:['شاه زمان','الوزير','شهريار','أبوهما'],a:2},{q:'ما الذي حكمه شاه زمان؟',opts:['الهند والصين','مصر','سمرقند العجم','بغداد'],a:2}]},
+  {id:5,cat:'article',icon:'🔬',color:'#2a3d2a',title:'الدماغ والذاكرة',author:'مجلة ساينس عربي',diff:'hard',
+   text:`يُعدّ الدماغ البشري من أكثر الأجهزة تعقيداً في الكون المعروف إذ يحتوي على ما يزيد على مئة مليار خلية عصبية تترابط فيما بينها بشبكة من التشابكات تُقدَّر بمئة تريليون وصلة. تنتشر الذكريات في مناطق متعددة من الدماغ وليس في منطقة واحدة فالذكريات الإجرائية كتعلّم ركوب الدراجة تُختزن في المخيخ والعقد القاعدية بينما الذكريات العاطفية تعتمد على اللوزة الدماغية أما الذكريات الواضحة فتعتمد على الحُصين. ويرى علماء الأعصاب أن النوم الجيد أحد أهم عوامل تعزيز الذاكرة إذ يقوم الدماغ خلال النوم بمراجعة المعلومات المُكتسبة خلال النهار وترسيخها في الذاكرة طويلة الأمد.`,
+   quiz:[{q:'كم خلية عصبية في الدماغ تقريباً؟',opts:['مليار','عشرة مليارات','مئة مليار','مليار مليار'],a:2},{q:'أين تُختزن الذكريات العاطفية؟',opts:['الحُصين','المخيخ','اللوزة الدماغية','القشرة الجبهية'],a:2}]}
 ];
 
-// ============================================================
+// ================================================================
 // STATE
-// ============================================================
-const state = {
-  currentScreen: 'home',
-  currentMode: 'rsvp',
-  currentBook: null,
-  words: [],
-  wordIndex: 0,
-  chunkSize: 1,
-  wpm: 250,
-  fontSize: 32,
-  font: 'amiri',
-  isPlaying: false,
-  timer: null,
-  restTimer: null,
-  restEnabled: true,
-  resumeEnabled: true,
-  highlightColor: '#d4a843',
-  sessionStart: null,
-  readWords: 0,
-  customBooks: [],
-  filterCat: 'all',
-  filterSearch: '',
-  defaultWPM: 250,
-  defaultChunk: 1,
+// ================================================================
+const S={
+  mode:'rsvp',book:null,words:[],idx:0,chunk:1,
+  wpm:250,sz:32,font:'serif',playing:false,timer:null,
+  restOn:true,resumeOn:true,hlColor:'#d4a843',
+  sessStart:null,readW:0,custom:[],fCat:'all',fQ:''
 };
 
-// ============================================================
+// ================================================================
 // STORAGE
-// ============================================================
-function loadStorage() {
-  try {
-    const s = JSON.parse(localStorage.getItem('qsari-settings') || '{}');
-    if (s.wpm) state.wpm = s.wpm;
-    if (s.chunkSize) state.chunkSize = s.chunkSize;
-    if (s.font) state.font = s.font;
-    if (s.fontSize) state.fontSize = s.fontSize;
-    if (s.highlightColor) state.highlightColor = s.highlightColor;
-    if (s.restEnabled !== undefined) state.restEnabled = s.restEnabled;
-    if (s.resumeEnabled !== undefined) state.resumeEnabled = s.resumeEnabled;
-    if (s.defaultWPM) state.defaultWPM = s.defaultWPM;
-    state.customBooks = JSON.parse(localStorage.getItem('qsari-books') || '[]');
-  } catch(e){}
+// ================================================================
+function load(){
+  try{
+    const s=JSON.parse(localStorage.getItem('qs3-s')||'{}');
+    if(s.wpm) S.wpm=s.wpm; if(s.chunk) S.chunk=s.chunk;
+    if(s.font) S.font=s.font; if(s.sz) S.sz=s.sz;
+    if(s.hlColor) S.hlColor=s.hlColor;
+    if(s.restOn!==undefined) S.restOn=s.restOn;
+    if(s.resumeOn!==undefined) S.resumeOn=s.resumeOn;
+    S.custom=JSON.parse(localStorage.getItem('qs3-books')||'[]');
+  }catch(e){}
 }
+function saveCfg(){localStorage.setItem('qs3-s',JSON.stringify({wpm:S.wpm,chunk:S.chunk,font:S.font,sz:S.sz,hlColor:S.hlColor,restOn:S.restOn,resumeOn:S.resumeOn}));}
+function getSess(){return JSON.parse(localStorage.getItem('qs3-sess')||'[]');}
+function addSess(o){const a=getSess();a.unshift(o);if(a.length>50)a.pop();localStorage.setItem('qs3-sess',JSON.stringify(a));}
+function getRes(id){return(JSON.parse(localStorage.getItem('qs3-res')||'{}'))[id]||0;}
+function setRes(id,i){const r=JSON.parse(localStorage.getItem('qs3-res')||'{}');r[id]=i;localStorage.setItem('qs3-res',JSON.stringify(r));}
 
-function saveSettings() {
-  localStorage.setItem('qsari-settings', JSON.stringify({
-    wpm: state.wpm, chunkSize: state.chunkSize,
-    font: state.font, fontSize: state.fontSize,
-    highlightColor: state.highlightColor,
-    restEnabled: state.restEnabled,
-    resumeEnabled: state.resumeEnabled,
-    defaultWPM: state.defaultWPM,
-  }));
-}
-
-function getSessions() {
-  return JSON.parse(localStorage.getItem('qsari-sessions') || '[]');
-}
-
-function saveSession(sess) {
-  const sessions = getSessions();
-  sessions.unshift(sess);
-  if (sessions.length > 50) sessions.pop();
-  localStorage.setItem('qsari-sessions', JSON.stringify(sessions));
-}
-
-function getResume(bookId) {
-  const r = JSON.parse(localStorage.getItem('qsari-resume') || '{}');
-  return r[bookId] || 0;
-}
-
-function saveResume(bookId, idx) {
-  const r = JSON.parse(localStorage.getItem('qsari-resume') || '{}');
-  r[bookId] = idx;
-  localStorage.setItem('qsari-resume', JSON.stringify(r));
-}
-
-// ============================================================
+// ================================================================
 // NAVIGATION
-// ============================================================
-function switchScreen(name, btnEl) {
-  stopReading();
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
-  document.getElementById('screen-' + name).classList.add('active');
-  if (btnEl) btnEl.classList.add('active');
-  state.currentScreen = name;
-  if (name === 'stats') renderStats();
-  if (name === 'library') renderBooks();
-  if (name === 'settings') renderSettings();
-  if (name === 'home') updateHomeStats();
+// ================================================================
+function goScreen(name,btn){
+  stop();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.bn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('s-'+name).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(name==='stats') drawStats();
+  if(name==='library') drawBooks();
+  if(name==='settings') drawSettings();
+  if(name==='home') drawHome();
 }
+function goMode(mode){S.mode=mode;goScreen('reader',document.querySelectorAll('.bn')[2]);applyMode(mode);}
 
-function goMode(mode) {
-  state.currentMode = mode;
-  switchScreen('reader', document.getElementById('bn-reader'));
-  switchReaderModeByName(mode);
-}
-
-// ============================================================
+// ================================================================
 // LIBRARY
-// ============================================================
-function allBooks() {
-  return [...BOOKS, ...state.customBooks];
-}
+// ================================================================
+function allBooks(){return[...BOOKS,...S.custom];}
+function wc(t){return t.split(/\s+/).filter(Boolean).length;}
+const DL={easy:'سهل',med:'متوسط',hard:'صعب'};
+const CL={story:'قصة',article:'مقال',hadith:'حديث',custom:'نصي'};
 
-function renderBooks() {
-  const list = document.getElementById('books-list');
-  const q = state.filterSearch.trim();
-  let books = allBooks();
-  if (state.filterCat !== 'all') books = books.filter(b => b.cat === state.filterCat);
-  if (q) books = books.filter(b => b.title.includes(q) || (b.author && b.author.includes(q)));
-  if (!books.length) { list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:14px;">لا توجد نصوص</div>'; return; }
-  list.innerHTML = books.map(b => `
-    <div class="book-card" onclick="openBook(${b.id || b._id})">
-      <div class="book-cover" style="background:${b.color||'#2a3040'}">${b.icon||'📄'}</div>
-      <div class="book-info">
-        <div class="book-title">${b.title}</div>
-        <div class="book-author">${b.author||'مستخدم'}</div>
-        <div class="book-meta">
-          <span class="book-tag">~${b.words||countWords(b.text)} كلمة</span>
-          <span class="book-tag diff-${b.difficulty||'easy'}">${{easy:'سهل',med:'متوسط',hard:'صعب'}[b.difficulty||'easy']}</span>
-          <span class="book-tag">${{story:'قصص',article:'مقالات',hadith:'أحاديث',custom:'نصوصي'}[b.cat]||'نص'}</span>
+function drawBooks(){
+  const el=document.getElementById('books-list');
+  let books=allBooks();
+  if(S.fCat!=='all') books=books.filter(b=>b.cat===S.fCat);
+  const q=S.fQ.trim();
+  if(q) books=books.filter(b=>b.title.includes(q)||(b.author||'').includes(q));
+  if(!books.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--text-muted)">لا توجد نصوص</div>';return;}
+  el.innerHTML=books.map(b=>`
+    <div class="bc" onclick="openBook(${b.id||b._id})">
+      <div class="bcover" style="background:${b.color||'#2a3040'}">${b.icon||'📄'}</div>
+      <div class="bi">
+        <div class="bt">${b.title}</div>
+        <div class="ba">${b.author||'مستخدم'}</div>
+        <div class="bm">
+          <span class="tag">~${b.words||wc(b.text)} كلمة</span>
+          <span class="tag ${b.diff||'easy'}">${DL[b.diff||'easy']}</span>
+          <span class="tag">${CL[b.cat]||'نص'}</span>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`).join('');
+}
+function filterCat(cat,el){S.fCat=cat;document.querySelectorAll('.lt').forEach(t=>t.classList.remove('active'));el.classList.add('active');drawBooks();}
+function filterBooks(){S.fQ=document.getElementById('lib-search').value;drawBooks();}
+
+function openBook(id){
+  const book=allBooks().find(b=>(b.id||b._id)===id);
+  if(!book)return;
+  S.book=book;
+  S.words=book.text.split(/\s+/).filter(Boolean);
+  S.idx=S.resumeOn?Math.min(getRes(id),S.words.length-1):0;
+  document.getElementById('r-title').textContent=book.title;
+  document.getElementById('rsvp-tot').textContent=S.words.length;
+  document.getElementById('qp').classList.remove('active');
+  document.getElementById('next-btn').style.display='none';
+  initHL(); initPC(); renderRSVP();
+  goScreen('reader',document.querySelectorAll('.bn')[2]);
+  toast('تم تحميل: '+book.title);
 }
 
-function filterCat(cat, el) {
-  state.filterCat = cat;
-  document.querySelectorAll('.lib-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  renderBooks();
+// ================================================================
+// CUSTOM TEXT
+// ================================================================
+function openAddText(){document.getElementById('modal').classList.add('open');}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function saveText(){
+  const t=document.getElementById('m-title').value.trim();
+  const tx=document.getElementById('m-text').value.trim();
+  if(!tx){toast('أدخل نصاً!');return;}
+  const b={_id:Date.now(),cat:'custom',icon:'📝',color:'#3a3a2d',title:t||'نص مخصص',author:'أنت',diff:'easy',words:wc(tx),text:tx};
+  S.custom.push(b);
+  localStorage.setItem('qs3-books',JSON.stringify(S.custom));
+  document.getElementById('m-title').value='';
+  document.getElementById('m-text').value='';
+  closeModal(); drawBooks(); toast('تم الحفظ ✓');
 }
 
-function filterBooks() {
-  state.filterSearch = document.getElementById('lib-search').value;
-  renderBooks();
-}
-
-function countWords(t) { return t.split(/\s+/).filter(Boolean).length; }
-
-function openBook(id) {
-  const book = allBooks().find(b => (b.id || b._id) === id);
-  if (!book) return;
-  state.currentBook = book;
-  state.words = book.text.split(/\s+/).filter(Boolean);
-  const resume = state.resumeEnabled ? getResume(id) : 0;
-  state.wordIndex = Math.min(resume, state.words.length - 1);
-  document.getElementById('reader-book-title').textContent = book.title;
-  document.getElementById('rsvp-total').textContent = state.words.length;
-  document.getElementById('quiz-panel').classList.remove('active');
-  switchScreen('reader', document.getElementById('bn-reader'));
-  initHighlightMode();
-  initPacerMode();
-  renderRSVP();
-  showToast('تم تحميل: ' + book.title);
-}
-
-// ============================================================
-// ADD CUSTOM TEXT
-// ============================================================
-function openAddText() {
-  document.getElementById('add-modal').classList.add('open');
-}
-function closeAddText() {
-  document.getElementById('add-modal').classList.remove('open');
-}
-function saveCustomText() {
-  const title = document.getElementById('custom-title').value.trim();
-  const text = document.getElementById('custom-text').value.trim();
-  if (!text) { showToast('أدخل نصاً!'); return; }
-  const book = {
-    _id: Date.now(), cat:'custom', icon:'📝', color:'#3a3a2d',
-    title: title || 'نص مخصص', author:'أنت',
-    difficulty:'easy', words: countWords(text), text
-  };
-  state.customBooks.push(book);
-  localStorage.setItem('qsari-books', JSON.stringify(state.customBooks));
-  document.getElementById('custom-title').value = '';
-  document.getElementById('custom-text').value = '';
-  closeAddText();
-  renderBooks();
-  showToast('تم الحفظ ✓');
-}
-
-// ============================================================
+// ================================================================
 // READER MODES
-// ============================================================
-function switchReaderMode(mode, el) {
-  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  switchReaderModeByName(mode);
+// ================================================================
+function switchRM(mode,el){document.querySelectorAll('.mb').forEach(b=>b.classList.remove('active'));el.classList.add('active');applyMode(mode);}
+function applyMode(mode){
+  stop(); S.mode=mode;
+  ['rsvp','hl','ck','pc','pp'].forEach(m=>document.getElementById('d-'+m).classList.remove('active'));
+  const map={rsvp:'rsvp',highlight:'hl',chunk:'ck',pacer:'pc',periph:'pp',subvoc:'rsvp'};
+  document.getElementById('d-'+(map[mode]||'rsvp')).classList.add('active');
 }
 
-function switchReaderModeByName(mode) {
-  stopReading();
-  state.currentMode = mode;
-  ['rsvp','highlight','chunk','pacer','periph'].forEach(m => {
-    document.getElementById(m + '-display').classList.remove('active');
-  });
-  const map = {rsvp:'rsvp',highlight:'highlight',chunk:'chunk',pacer:'pacer',periph:'periph',subvoc:'rsvp'};
-  const target = map[mode] || 'rsvp';
-  document.getElementById(target + '-display').classList.add('active');
-
-  // Sync mode-btns
-  document.querySelectorAll('.mode-btn').forEach(b => {
-    if (b.textContent.trim() === {rsvp:'RSVP',highlight:'تمييز',chunk:'مجموعات',pacer:'مؤشر',periph:'محيطية'}[mode]) {
-      b.classList.add('active');
-    }
-  });
-}
-
-// ============================================================
+// ================================================================
 // RSVP
-// ============================================================
-function renderRSVP() {
-  if (!state.words.length) return;
-  const w = state.words[state.wordIndex] || '';
-  const el = document.getElementById('rsvp-word');
-  // ORP highlight (roughly 1/3 from start for Arabic)
-  el.textContent = w;
-  document.getElementById('rsvp-cur').textContent = state.wordIndex + 1;
-  document.getElementById('rsvp-total').textContent = state.words.length;
-  const pct = state.words.length ? (state.wordIndex / state.words.length * 100) : 0;
-  document.getElementById('rsvp-progress').style.width = pct + '%';
+// ================================================================
+function renderRSVP(){
+  if(!S.words.length)return;
+  document.getElementById('rsvp-word').textContent=S.words[S.idx]||'';
+  document.getElementById('rsvp-cur').textContent=S.idx+1;
+  document.getElementById('prog').style.width=(S.words.length?(S.idx/S.words.length*100):0)+'%';
 }
 
-// ============================================================
+// ================================================================
 // HIGHLIGHT
-// ============================================================
-function initHighlightMode() {
-  const el = document.getElementById('highlight-display');
-  if (!state.words.length) { el.innerHTML = '<span style="color:var(--text-muted)">لا يوجد نص</span>'; return; }
-  el.innerHTML = state.words.map((w,i) =>
-    `<span class="h-word${i < state.wordIndex ? ' read':''}" id="hw-${i}" onclick="jumpTo(${i})">${w} </span>`
-  ).join('');
+// ================================================================
+function initHL(){
+  const el=document.getElementById('d-hl');
+  if(!S.words.length){el.innerHTML='';return;}
+  el.innerHTML=S.words.map((w,i)=>`<span class="hw${i<S.idx?' rd':''}" id="hw${i}" onclick="jump(${i})">${w} </span>`).join('');
 }
-
-function updateHighlight() {
-  document.querySelectorAll('.h-word').forEach((el,i) => {
-    el.className = 'h-word' + (i < state.wordIndex ? ' read' : i === state.wordIndex ? ' current' : '');
-  });
-  const cur = document.getElementById('hw-' + state.wordIndex);
-  if (cur) cur.scrollIntoView({block:'center',behavior:'smooth'});
+function updHL(){
+  document.querySelectorAll('.hw').forEach((el,i)=>{el.className='hw'+(i<S.idx?' rd':i===S.idx?' cur':'');});
+  const c=document.getElementById('hw'+S.idx);
+  if(c) c.scrollIntoView({block:'center',behavior:'smooth'});
 }
+function jump(i){S.idx=i;renderRSVP();updHL();}
 
-function jumpTo(i) { state.wordIndex = i; renderRSVP(); updateHighlight(); }
-
-// ============================================================
+// ================================================================
 // PACER
-// ============================================================
-function initPacerMode() {
-  const el = document.getElementById('pacer-text');
-  if (!state.words.length) return;
-  const lineSize = 8;
-  let html = '';
-  for (let i=0; i<state.words.length; i+=lineSize) {
-    const chunk = state.words.slice(i, i+lineSize).join(' ');
-    html += `<div style="min-height:2.4em" id="pl-${Math.floor(i/lineSize)}">${chunk}</div>`;
-  }
-  el.innerHTML = html;
+// ================================================================
+function initPC(){
+  const el=document.getElementById('pc-text');
+  if(!S.words.length)return;
+  const ls=8;let h='';
+  for(let i=0;i<S.words.length;i+=ls)
+    h+=`<div style="min-height:2.4em" id="pl${Math.floor(i/ls)}">${S.words.slice(i,i+ls).join(' ')}</div>`;
+  el.innerHTML=h;
+}
+function updPC(){
+  const ls=8,li=Math.floor(S.idx/ls),le=document.getElementById('pl'+li);
+  if(le){document.getElementById('pc-line').style.top=le.offsetTop+'px';document.getElementById('d-pc').scrollTop=le.offsetTop-80;}
 }
 
-function updatePacer() {
-  const lineSize = 8;
-  const lineIdx = Math.floor(state.wordIndex / lineSize);
-  const lineEl = document.getElementById('pl-' + lineIdx);
-  const container = document.getElementById('pacer-display');
-  const lineEl2 = document.getElementById('pacer-line');
-  if (lineEl) {
-    const top = lineEl.offsetTop;
-    lineEl2.style.top = top + 'px';
-    container.scrollTop = top - 80;
-  }
-}
-
-// ============================================================
+// ================================================================
 // PERIPHERAL
-// ============================================================
-function updatePeriph() {
-  if (!state.words.length) return;
-  const i = state.wordIndex;
-  const w = (idx) => state.words[idx] || '';
-  document.getElementById('pw-c').textContent = w(i);
-  document.getElementById('pw-r1').textContent = w(i+1);
-  document.getElementById('pw-r2').textContent = w(i+2);
-  document.getElementById('pw-l1').textContent = w(i-1);
-  document.getElementById('pw-l2').textContent = w(i-2);
+// ================================================================
+function updPP(){
+  if(!S.words.length)return;
+  const i=S.idx,w=j=>S.words[j]||'';
+  document.getElementById('pw-c').textContent=w(i);
+  document.getElementById('pw-r1').textContent=w(i+1);
+  document.getElementById('pw-r2').textContent=w(i+2);
+  document.getElementById('pw-l1').textContent=w(i-1);
+  document.getElementById('pw-l2').textContent=w(i-2);
 }
 
-// ============================================================
+// ================================================================
 // PLAYBACK
-// ============================================================
-function togglePlay() {
-  if (state.isPlaying) stopReading();
-  else startReading();
+// ================================================================
+function togglePlay(){S.playing?stop():start();}
+function start(){
+  if(!S.words.length){toast('اختر نصاً أولاً');return;}
+  if(S.idx>=S.words.length)S.idx=0;
+  S.playing=true; S.sessStart=S.sessStart||Date.now();
+  document.getElementById('play-btn').textContent='⏸';
+  document.getElementById('wpm-pill').textContent=S.wpm+' كلمة/د';
+  tick(); if(S.restOn)startRest();
 }
-
-function startReading() {
-  if (!state.words.length) { showToast('اختر نصاً أولاً'); return; }
-  if (state.wordIndex >= state.words.length) state.wordIndex = 0;
-  state.isPlaying = true;
-  state.sessionStart = state.sessionStart || Date.now();
-  document.getElementById('play-btn').textContent = '⏸';
-  document.getElementById('live-wpm').textContent = state.wpm + ' كلمة/د';
-  scheduleNext();
-  startRestTimer();
+function stop(){
+  S.playing=false;
+  if(S.timer){clearTimeout(S.timer);S.timer=null;}
+  document.getElementById('play-btn').textContent='▶';
+  if(S.book&&S.resumeOn) setRes(S.book.id||S.book._id,S.idx);
 }
-
-function stopReading() {
-  state.isPlaying = false;
-  if (state.timer) { clearTimeout(state.timer); state.timer = null; }
-  document.getElementById('play-btn').textContent = '▶';
-  if (state.currentBook && state.resumeEnabled) {
-    saveResume(state.currentBook.id || state.currentBook._id, state.wordIndex);
+function tick(){
+  if(!S.playing)return;
+  S.timer=setTimeout(()=>{adv();tick();},Math.round(60000/S.wpm/Math.max(1,S.chunk)));
+}
+function adv(){
+  const step=(S.mode==='chunk'||S.mode==='periph')?S.chunk:1;
+  S.idx+=step;S.readW+=step;
+  if(S.idx>=S.words.length){stop();S.idx=S.words.length-1;onDone();return;}
+  switch(S.mode){
+    case 'rsvp':case 'subvoc':renderRSVP();break;
+    case 'highlight':updHL();break;
+    case 'chunk':renderCK();break;
+    case 'pacer':updPC();break;
+    case 'periph':updPP();break;
   }
 }
-
-function scheduleNext() {
-  if (!state.isPlaying) return;
-  const delay = Math.round(60000 / state.wpm / Math.max(1, state.chunkSize));
-  state.timer = setTimeout(() => {
-    advanceWord();
-    scheduleNext();
-  }, delay);
+function renderCK(){
+  const t=S.words.slice(S.idx,S.idx+S.chunk).join(' ');
+  const el=document.getElementById('ck-word');
+  el.style.animation='none';el.offsetHeight;el.style.animation='';el.textContent=t;
 }
+function skip(n){S.idx=Math.max(0,Math.min(S.words.length-1,S.idx+n));renderRSVP();updHL();updPC();updPP();}
 
-function advanceWord() {
-  const step = state.currentMode === 'chunk' || state.currentMode === 'periph'
-    ? state.chunkSize : 1;
-  state.wordIndex += step;
-  state.readWords += step;
-
-  if (state.wordIndex >= state.words.length) {
-    stopReading();
-    state.wordIndex = state.words.length - 1;
-    onFinished();
-    return;
-  }
-
-  switch(state.currentMode) {
-    case 'rsvp': case 'subvoc': renderRSVP(); break;
-    case 'highlight': updateHighlight(); break;
-    case 'chunk': renderChunk(); break;
-    case 'pacer': updatePacer(); break;
-    case 'periph': updatePeriph(); break;
-  }
-}
-
-function renderChunk() {
-  const chunk = state.words.slice(state.wordIndex, state.wordIndex + state.chunkSize).join(' ');
-  const el = document.getElementById('chunk-word');
-  el.style.animation = 'none';
-  el.offsetHeight;
-  el.style.animation = '';
-  el.textContent = chunk;
-}
-
-function skipBack() {
-  state.wordIndex = Math.max(0, state.wordIndex - 20);
-  renderRSVP(); updateHighlight(); updatePacer(); updatePeriph();
-}
-function skipForward() {
-  state.wordIndex = Math.min(state.words.length - 1, state.wordIndex + 20);
-  renderRSVP(); updateHighlight(); updatePacer(); updatePeriph();
-}
-
-// ============================================================
-// FINISHED
-// ============================================================
-function onFinished() {
-  if (!state.currentBook || !state.sessionStart) return;
-  const elapsed = (Date.now() - state.sessionStart) / 60000;
-  const actualWPM = Math.round(state.readWords / Math.max(elapsed, 0.1));
-  showToast('أحسنت! انتهيت من القراءة 🎉');
-  state.sessionStart = null;
-  state.readWords = 0;
+// ================================================================
+// FINISHED + QUIZ
+// ================================================================
+function onDone(){
+  if(!S.book||!S.sessStart)return;
+  const el=(Date.now()-S.sessStart)/60000;
+  window._wpm=Math.round(S.readW/Math.max(el,.1));
+  S.sessStart=null;S.readW=0;
+  toast('أحسنت! انتهيت 🎉');
   showQuiz();
-  // Save session after quiz
-  window._pendingWPM = actualWPM;
 }
-
-// ============================================================
-// QUIZ
-// ============================================================
-function showQuiz() {
-  const book = state.currentBook;
-  if (!book || !book.quiz || !book.quiz.length) return;
-  const q = book.quiz[Math.floor(Math.random() * book.quiz.length)];
-  const panel = document.getElementById('quiz-panel');
-  panel.classList.add('active');
-  document.getElementById('quiz-q').textContent = q.q;
-  document.getElementById('quiz-result').style.display = 'none';
-  document.getElementById('quiz-opts').innerHTML = q.opts.map((o,i) =>
-    `<button class="quiz-opt" onclick="answerQuiz(${i},${q.a},this)">${o}</button>`
-  ).join('');
+function showQuiz(){
+  const b=S.book;
+  if(!b||!b.quiz||!b.quiz.length){saveFin(100);return;}
+  const q=b.quiz[Math.floor(Math.random()*b.quiz.length)];
+  document.getElementById('qp').classList.add('active');
+  document.getElementById('qq').textContent=q.q;
+  document.getElementById('qr').style.display='none';
+  document.getElementById('next-btn').style.display='none';
+  document.getElementById('qopts').innerHTML=q.opts.map((o,i)=>
+    `<button class="qo" onclick="ansQ(${i},${q.a},this)">${o}</button>`).join('');
 }
-
-function answerQuiz(chosen, correct, el) {
-  document.querySelectorAll('.quiz-opt').forEach(b => b.style.pointerEvents='none');
-  const isCorrect = chosen === correct;
-  el.classList.add(isCorrect ? 'correct' : 'wrong');
-  document.querySelectorAll('.quiz-opt')[correct].classList.add('correct');
-  const res = document.getElementById('quiz-result');
-  res.style.display = 'block';
-  res.style.background = isCorrect ? 'rgba(74,222,128,0.1)' : 'rgba(248,113,113,0.1)';
-  res.style.color = isCorrect ? 'var(--green)' : 'var(--red)';
-  res.textContent = isCorrect ? '✓ إجابة صحيحة! أحسنت' : '✗ إجابة خاطئة. الصحيحة ملوّنة بالأخضر';
-  const comp = isCorrect ? 100 : 0;
-  if (window._pendingWPM) {
-    saveSession({
-      title: state.currentBook.title,
-      wpm: window._pendingWPM,
-      comp,
-      date: new Date().toLocaleDateString('ar')
-    });
-    window._pendingWPM = null;
+function ansQ(ch,cor,el){
+  document.querySelectorAll('.qo').forEach(b=>b.style.pointerEvents='none');
+  const ok=ch===cor;
+  el.classList.add(ok?'ok':'no');
+  document.querySelectorAll('.qo')[cor].classList.add('ok');
+  const r=document.getElementById('qr');
+  r.style.display='block';
+  r.style.background=ok?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)';
+  r.style.color=ok?'var(--green)':'var(--red)';
+  r.textContent=ok?'✓ إجابة صحيحة! أحسنت':'✗ خاطئة — الصحيحة باللون الأخضر';
+  document.getElementById('next-btn').style.display='block';
+  saveFin(ok?100:0);
+}
+function saveFin(comp){
+  if(window._wpm){
+    addSess({title:S.book.title,wpm:window._wpm,comp,date:new Date().toLocaleDateString('ar')});
+    window._wpm=null;drawHome();
   }
-  updateHomeStats();
+}
+function closeQuiz(){document.getElementById('qp').classList.remove('active');document.getElementById('next-btn').style.display='none';}
+
+// ================================================================
+// REST
+// ================================================================
+let _ri=null;
+function startRest(){clearInterval(_ri);let s=20*60;_ri=setInterval(()=>{if(--s<=0){clearInterval(_ri);triggerRest();}},1000);}
+function triggerRest(){
+  stop();const p=document.getElementById('rest-p');p.classList.add('active');
+  let c=20;document.getElementById('rest-cnt').textContent=c;
+  const t=setInterval(()=>{document.getElementById('rest-cnt').textContent=--c;if(c<=0){clearInterval(t);p.classList.remove('active');start();}},1000);
 }
 
-// ============================================================
-// REST TIMER (20-20-20)
-// ============================================================
-let restInterval = null, restSeconds = 0;
-function startRestTimer() {
-  if (!state.restEnabled) return;
-  clearInterval(restInterval);
-  restSeconds = 20 * 60;
-  restInterval = setInterval(() => {
-    restSeconds--;
-    if (restSeconds <= 0) {
-      clearInterval(restInterval);
-      triggerRest();
-    }
-  }, 1000);
-}
-function triggerRest() {
-  stopReading();
-  const panel = document.getElementById('rest-timer');
-  panel.style.display = 'block';
-  let cnt = 20;
-  document.getElementById('rest-count').textContent = cnt;
-  const t = setInterval(() => {
-    cnt--;
-    document.getElementById('rest-count').textContent = cnt;
-    if (cnt <= 0) {
-      clearInterval(t);
-      panel.style.display = 'none';
-      startReading();
-    }
-  }, 1000);
-}
-
-// ============================================================
+// ================================================================
 // CONTROLS
-// ============================================================
-function updateWPM(v) {
-  state.wpm = parseInt(v);
-  document.getElementById('wpm-val').textContent = v;
-  document.getElementById('live-wpm').textContent = v + ' كلمة/د';
-  saveSettings();
+// ================================================================
+function setWPM(v){S.wpm=+v;document.getElementById('cv-wpm').textContent=v;document.getElementById('wpm-pill').textContent=v+' كلمة/د';saveCfg();}
+function setSize(v){S.sz=+v;document.getElementById('cv-sz').textContent=v;document.getElementById('rsvp-word').style.fontSize=v+'px';document.getElementById('ck-word').style.fontSize=(v*.8)+'px';saveCfg();}
+function setChunk(v){S.chunk=+v;document.getElementById('cv-ck').textContent=v;saveCfg();}
+function setFont(f,el){
+  S.font=f;document.querySelectorAll('.fb').forEach(b=>b.classList.remove('active'));el.classList.add('active');
+  const ff=f==='serif'?'Georgia,Times New Roman,serif':'Tahoma,Arial,sans-serif';
+  ['rsvp-word','ck-word'].forEach(id=>document.getElementById(id).style.fontFamily=ff);
+  document.getElementById('d-hl').style.fontFamily=ff;saveCfg();
 }
 
-function updateFontSize(v) {
-  state.fontSize = parseInt(v);
-  document.getElementById('size-val').textContent = v;
-  document.getElementById('rsvp-word').style.fontSize = v + 'px';
-  document.getElementById('chunk-word').style.fontSize = (parseInt(v)*0.8) + 'px';
-  saveSettings();
-}
-
-function updateChunk(v) {
-  state.chunkSize = parseInt(v);
-  document.getElementById('chunk-val').textContent = v;
-  saveSettings();
-}
-
-function setFont(f, el) {
-  state.font = f;
-  document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  const fam = f === 'amiri' ? "'Amiri', serif" : "'Cairo', sans-serif";
-  document.getElementById('rsvp-word').style.fontFamily = fam;
-  document.getElementById('chunk-word').style.fontFamily = fam;
-  document.getElementById('highlight-display').style.fontFamily = fam;
-  saveSettings();
-}
-
-// ============================================================
+// ================================================================
 // STATS
-// ============================================================
-function renderStats() {
-  const sessions = getSessions();
-  if (!sessions.length) {
-    document.getElementById('stat-avg-wpm').textContent = '—';
-    document.getElementById('stat-best').textContent = '—';
-    document.getElementById('stat-total-words').textContent = '0';
-    document.getElementById('stat-avg-comp').textContent = '—';
-    document.getElementById('wpm-chart').innerHTML = '<div style="color:var(--text-muted);font-size:12px">لا بيانات</div>';
-    document.getElementById('history-list').innerHTML = '<div class="history-item" style="justify-content:center;color:var(--text-muted);font-size:13px">لا توجد جلسات بعد</div>';
+// ================================================================
+function drawHome(){
+  const s=getSess();if(!s.length)return;
+  document.getElementById('h-wpm').textContent=Math.round(s.reduce((a,x)=>a+x.wpm,0)/s.length);
+  document.getElementById('h-sess').textContent=s.length;
+  const wc2=s.filter(x=>x.comp!==undefined);
+  if(wc2.length)document.getElementById('h-comp').textContent=Math.round(wc2.reduce((a,x)=>a+x.comp,0)/wc2.length)+'%';
+}
+function drawStats(){
+  const s=getSess();
+  if(!s.length){
+    ['st-avg','st-best','st-comp'].forEach(id=>document.getElementById(id).textContent='—');
+    document.getElementById('st-words').textContent='0';
+    document.getElementById('chart').innerHTML='<div style="color:var(--text-muted);font-size:12px">لا بيانات</div>';
+    document.getElementById('hist-list').innerHTML='<div class="hi" style="justify-content:center;color:var(--text-muted);font-size:13px">لا توجد جلسات بعد</div>';
     return;
   }
-  const avg = Math.round(sessions.reduce((s,x) => s+x.wpm,0) / sessions.length);
-  const best = Math.max(...sessions.map(x=>x.wpm));
-  const totalW = sessions.reduce((s,x) => s + Math.round(x.wpm*5),0);
-  const avgComp = Math.round(sessions.filter(x=>x.comp!==undefined).reduce((s,x)=>s+x.comp,0) / Math.max(sessions.filter(x=>x.comp!==undefined).length,1));
-  document.getElementById('stat-avg-wpm').textContent = avg;
-  document.getElementById('stat-best').textContent = best;
-  document.getElementById('stat-total-words').textContent = totalW.toLocaleString('ar');
-  document.getElementById('stat-avg-comp').textContent = avgComp + '%';
-
-  // Chart
-  const last7 = sessions.slice(0,7).reverse();
-  const maxWpm = Math.max(...last7.map(x=>x.wpm), 1);
-  document.getElementById('wpm-chart').innerHTML = last7.map(s => `
-    <div class="bar-item">
-      <div class="bar-val">${s.wpm}</div>
-      <div class="bar" style="height:${Math.round(s.wpm/maxWpm*80)}px"></div>
-      <div class="bar-lbl">${s.date||''}</div>
-    </div>
-  `).join('');
-
-  // History
-  document.getElementById('history-list').innerHTML = sessions.slice(0,10).map(s => `
-    <div class="history-item">
-      <div class="hist-info">
-        <div class="hist-title">${s.title||'نص'}</div>
-        <div class="hist-date">${s.date||''} ${s.comp!==undefined?'· فهم '+s.comp+'%':''}</div>
-      </div>
-      <div class="hist-wpm">${s.wpm}</div>
-    </div>
-  `).join('');
+  const avg=Math.round(s.reduce((a,x)=>a+x.wpm,0)/s.length);
+  document.getElementById('st-avg').textContent=avg;
+  document.getElementById('st-best').textContent=Math.max(...s.map(x=>x.wpm));
+  document.getElementById('st-words').textContent=s.reduce((a,x)=>a+Math.round(x.wpm*5),0).toLocaleString('ar');
+  const wc2=s.filter(x=>x.comp!==undefined);
+  document.getElementById('st-comp').textContent=(wc2.length?Math.round(wc2.reduce((a,x)=>a+x.comp,0)/wc2.length):0)+'%';
+  const l7=s.slice(0,7).reverse(),mx=Math.max(...l7.map(x=>x.wpm),1);
+  document.getElementById('chart').innerHTML=l7.map(x=>`<div class="bi-c"><div class="bar-v">${x.wpm}</div><div class="bar-b" style="height:${Math.round(x.wpm/mx*75)}px"></div><div class="bar-l">${(x.date||'').split('/').slice(0,2).join('/')}</div></div>`).join('');
+  document.getElementById('hist-list').innerHTML=s.slice(0,10).map(x=>`<div class="hi"><div><div class="hi-t">${x.title||'نص'}</div><div class="hi-d">${x.date||''}${x.comp!==undefined?' · فهم '+x.comp+'%':''}</div></div><div class="hi-w">${x.wpm}</div></div>`).join('');
 }
 
-function updateHomeStats() {
-  const sessions = getSessions();
-  if (!sessions.length) return;
-  const avg = Math.round(sessions.reduce((s,x)=>s+x.wpm,0)/sessions.length);
-  document.getElementById('home-wpm').textContent = avg;
-  document.getElementById('home-sessions').textContent = sessions.length;
-  const withComp = sessions.filter(x=>x.comp!==undefined);
-  if (withComp.length) {
-    const ac = Math.round(withComp.reduce((s,x)=>s+x.comp,0)/withComp.length);
-    document.getElementById('home-comp').textContent = ac + '%';
-  }
-}
-
-// ============================================================
+// ================================================================
 // SETTINGS
-// ============================================================
-const COLORS = ['#d4a843','#38bdf8','#4ade80','#f87171','#c084fc','#fb923c','#ffffff'];
-
-function renderSettings() {
-  const cr = document.getElementById('color-row');
-  cr.innerHTML = COLORS.map(c =>
-    `<div class="color-swatch${c===state.highlightColor?' selected':''}" style="background:${c}" onclick="setHighlightColor('${c}',this)"></div>`
-  ).join('');
-  document.getElementById('toggle-rest').className = 'toggle' + (state.restEnabled ? ' on' : '');
-  document.getElementById('toggle-resume').className = 'toggle' + (state.resumeEnabled ? ' on' : '');
+// ================================================================
+const COLORS=['#d4a843','#38bdf8','#4ade80','#f87171','#c084fc','#fb923c','#ffffff'];
+function drawSettings(){
+  document.getElementById('clr-row').innerHTML=COLORS.map(c=>`<div class="cs${c===S.hlColor?' sel':''}" style="background:${c}" onclick="setClr('${c}',this)"></div>`).join('');
+  document.getElementById('tgl-rest').className='tgl'+(S.restOn?' on':'');
+  document.getElementById('tgl-resume').className='tgl'+(S.resumeOn?' on':'');
+  document.getElementById('def-wpm-lbl').textContent=S.wpm+' كلمة/دقيقة';
 }
-
-function setHighlightColor(c, el) {
-  state.highlightColor = c;
-  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
-  el.classList.add('selected');
-  document.documentElement.style.setProperty('--gold', c);
-  saveSettings();
+function setClr(c,el){
+  S.hlColor=c;document.querySelectorAll('.cs').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');
+  document.documentElement.style.setProperty('--gold',c);saveCfg();
 }
+function toggleS(k,el){if(k==='rest')S.restOn=!S.restOn;if(k==='resume')S.resumeOn=!S.resumeOn;el.classList.toggle('on');saveCfg();}
+function setDefWPM(v){S.wpm=+v;document.getElementById('def-wpm-lbl').textContent=v+' كلمة/دقيقة';document.getElementById('sl-wpm').value=v;document.getElementById('cv-wpm').textContent=v;saveCfg();}
+function resetAll(){if(!confirm('هل أنت متأكد؟'))return;localStorage.removeItem('qs3-sess');localStorage.removeItem('qs3-res');toast('تم إعادة التعيين');drawStats();drawHome();}
 
-function toggleSetting(key, el) {
-  if (key==='rest') state.restEnabled = !state.restEnabled;
-  if (key==='resume') state.resumeEnabled = !state.resumeEnabled;
-  el.classList.toggle('on');
-  saveSettings();
-}
-
-function setDefaultWPM(v) {
-  state.defaultWPM = parseInt(v);
-  document.getElementById('default-wpm-label').textContent = v + ' كلمة/دقيقة';
-  state.wpm = parseInt(v);
-  document.getElementById('wpm-slider').value = v;
-  document.getElementById('wpm-val').textContent = v;
-  saveSettings();
-}
-
-function setDefaultChunk(v) {
-  state.defaultChunk = parseInt(v);
-  document.getElementById('default-chunk-label').textContent = v + ' كلمة';
-  state.chunkSize = parseInt(v);
-  saveSettings();
-}
-
-function resetAll() {
-  if (!confirm('هل أنت متأكد؟ سيتم حذف كل الإحصائيات.')) return;
-  localStorage.removeItem('qsari-sessions');
-  localStorage.removeItem('qsari-resume');
-  showToast('تم إعادة التعيين');
-  renderStats();
-  updateHomeStats();
-}
-
-// ============================================================
+// ================================================================
 // TOAST
-// ============================================================
-let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+// ================================================================
+let _tt;
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),2500);}
+
+// ================================================================
+// OFFLINE STATUS
+// ================================================================
+function chkOnline(){
+  let pill=document.getElementById('offline-pill');
+  if(!pill){pill=document.createElement('div');pill.id='offline-pill';pill.className='offline-pill';pill.textContent='أوفلاين ✓';document.querySelector('.nav').appendChild(pill);}
+  pill.className='offline-pill'+(navigator.onLine?'':' show');
 }
 
-// ============================================================
+// ================================================================
+// ✅ CACHE THIS PAGE MANUALLY — THE CORE OFFLINE FIX
+// ================================================================
+function cacheThisPage(){
+  if(!('caches' in window))return;
+  caches.open('qs-v3').then(c=>{
+    c.match(location.href).then(hit=>{
+      if(!hit) c.add(location.href).catch(()=>{});
+    });
+  });
+}
+
+// ================================================================
 // INIT
-// ============================================================
-function init() {
-  loadStorage();
-  renderBooks();
-  updateHomeStats();
-  // Apply saved settings to sliders
-  document.getElementById('wpm-slider').value = state.wpm;
-  document.getElementById('wpm-val').textContent = state.wpm;
-  document.getElementById('size-slider').value = state.fontSize;
-  document.getElementById('size-val').textContent = state.fontSize;
-  document.getElementById('chunk-slider').value = state.chunkSize;
-  document.getElementById('chunk-val').textContent = state.chunkSize;
-  // Service Worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-  }
-}
-
-document.addEventListener('DOMContentLoaded', init);
+// ================================================================
+window.addEventListener('DOMContentLoaded',()=>{
+  initPWA();
+  load();drawBooks();drawHome();
+  document.getElementById('sl-wpm').value=S.wpm;
+  document.getElementById('cv-wpm').textContent=S.wpm;
+  document.getElementById('sl-sz').value=S.sz;
+  document.getElementById('cv-sz').textContent=S.sz;
+  document.getElementById('sl-ck').value=S.chunk;
+  document.getElementById('cv-ck').textContent=S.chunk;
+  document.getElementById('wpm-pill').textContent=S.wpm+' كلمة/د';
+  window.addEventListener('online',chkOnline);
+  window.addEventListener('offline',chkOnline);
+  chkOnline();
+  // ✅ تخزين الصفحة في الـ Cache يدوياً عند كل زيارة
+  cacheThisPage();
+});
 </script>
 </body>
 </html>
